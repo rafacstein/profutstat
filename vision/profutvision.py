@@ -33,7 +33,7 @@ def salvar_dados(df):
     df.to_excel(DATA_PATH, index=False)
 
 def tela_principal():
-    st.sidebar.image("logo.png", width=150)  # Logo no topo
+    st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)  # Logo no topo
     st.title("⚽ Gestão de Treinos e Táticas")
     aba = st.sidebar.radio("Menu", ["Cadastro de Atletas", "Registro de Treinos", "Lousa Tática"])
 
