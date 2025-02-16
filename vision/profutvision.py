@@ -11,7 +11,7 @@ import json
 st.set_page_config(page_title="ProFutStat", layout="wide")
 
 # Carregar logo
-logo_path = "logo.png"  # Substitua pelo caminho real do seu logo
+logo_path = "https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg"  # Substitua pelo caminho real do seu logo
 if os.path.exists(logo_path):
     st.sidebar.image(logo_path, width=200)
 
