@@ -1,4 +1,4 @@
 streamlit
 pandas
 numpy
-streamlit-dnd
+git+https://github.com/andfanilo/streamlit-dnd@main
