@@ -74,7 +74,7 @@ def tela_principal():
             grid_response = AgGrid(positions, editable=True, height=400, width=400)
 
         elif tipo == "Campo de Futebol":
-            st.image("campo.png", width=600)
+            st.image("https://github.com/rafacstein/profutstat/blob/main/vision/campo.jpg?raw=true", width=600)
             positions = pd.DataFrame({
                 'x': [100, 200, 300, 400, 500, 150, 250, 350, 450, 275, 275],
                 'y': [50, 50, 50, 50, 50, 200, 200, 200, 200, 350, 500]
