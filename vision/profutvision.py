@@ -1,123 +1,80 @@
 import streamlit as st
 import pandas as pd
-import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
 import os
+from streamlit_dnd import dnd_grid  # Biblioteca para drag and drop (pip install streamlit-dnd)
 from PIL import Image
-import json
 
-# Configuração inicial
-st.set_page_config(page_title="ProFutStat", layout="wide")
+# Carregar credenciais do secrets.toml
+username = st.secrets["credentials"]["username"]
+password = st.secrets["credentials"]["password"]
 
-# Carregar logo
-logo_path = "https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg"  # Substitua pelo caminho real do seu logo
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, width=200)
+# Função para autenticação
+def login():
+    st.title("🔑 Login")
+    user_input = st.text_input("Usuário")
+    pass_input = st.text_input("Senha", type="password")
+    if st.button("Entrar"):
+        if user_input == username and pass_input == password:
+            st.session_state["logged_in"] = True
+            st.rerun()
+        else:
+            st.error("Usuário ou senha incorretos! ❌")
 
-# Autenticação
-users = {"admin": "1234"}  # Usuário e senha fixos (melhor usar um sistema seguro)
-username = st.sidebar.text_input("Usuário")
-password = st.sidebar.text_input("Senha", type="password")
-login_button = st.sidebar.button("Login")
+# Caminho do banco de dados (Excel temporário)
+DATA_PATH = "dados_treino.xlsx"
 
-if username in users and password == users[username]:
-    st.sidebar.success("Login realizado com sucesso!")
-    autenticado = True
-else:
-    autenticado = False
-    st.sidebar.warning("Usuário ou senha incorretos.")
+def carregar_dados():
+    if os.path.exists(DATA_PATH):
+        return pd.read_excel(DATA_PATH)
+    else:
+        return pd.DataFrame(columns=["Atleta", "Treino", "Notas"])
 
-if autenticado:
-    # Criar abas
-    aba = st.sidebar.radio("Navegação", ["Cadastro de Atletas", "Registro de Treinos", "Lousa Tática"])
-    
-    # --- Cadastro de Atletas ---
+def salvar_dados(df):
+    df.to_excel(DATA_PATH, index=False)
+
+def tela_principal():
+    st.sidebar.image("logo.png", width=150)  # Logo no topo
+    st.title("⚽ Gestão de Treinos e Táticas")
+    aba = st.sidebar.radio("Menu", ["Cadastro de Atletas", "Registro de Treinos", "Lousa Tática"])
+
     if aba == "Cadastro de Atletas":
-        st.title("Cadastro de Atletas")
-        data_path = "atletas.xlsx"
-        
-        if os.path.exists(data_path):
-            df = pd.read_excel(data_path)
-        else:
-            df = pd.DataFrame(columns=["Nome", "Idade", "Posição", "Altura", "Peso"])
-        
-        with st.form("Cadastro de Atletas"):
-            nome = st.text_input("Nome")
-            idade = st.number_input("Idade", min_value=10, max_value=40)
-            posicao = st.selectbox("Posição", ["Goleiro", "Zagueiro", "Lateral", "Meia", "Atacante"])
-            altura = st.number_input("Altura (cm)", min_value=140, max_value=210)
-            peso = st.number_input("Peso (kg)", min_value=40, max_value=120)
-            submit = st.form_submit_button("Salvar")
-            
-            if submit:
-                novo_atleta = pd.DataFrame([[nome, idade, posicao, altura, peso]], columns=df.columns)
-                df = pd.concat([df, novo_atleta], ignore_index=True)
-                df.to_excel(data_path, index=False)
+        st.header("📋 Cadastro de Atletas")
+        df = carregar_dados()
+        nome = st.text_input("Nome do Atleta")
+        if st.button("Adicionar"):
+            if nome:
+                df = df.append({"Atleta": nome, "Treino": "", "Notas": ""}, ignore_index=True)
+                salvar_dados(df)
                 st.success("Atleta cadastrado!")
-        
-        st.write(df)
-    
-    # --- Registro de Treinos ---
+        st.dataframe(df["Atleta"].dropna())
+
     elif aba == "Registro de Treinos":
-        st.title("Registro de Treinos")
-        treino_path = "treinos.xlsx"
-        
-        if os.path.exists(treino_path):
-            df_treinos = pd.read_excel(treino_path)
-        else:
-            df_treinos = pd.DataFrame(columns=["Data", "Atletas", "Treino", "Observações"])
-        
-        with st.form("Cadastro de Treino"):
-            data = st.date_input("Data do treino")
-            atletas = st.text_area("Atletas presentes")
-            treino = st.text_area("Descrição do treino")
-            observacoes = st.text_area("Observações")
-            submit = st.form_submit_button("Salvar")
-            
-            if submit:
-                novo_treino = pd.DataFrame([[data, atletas, treino, observacoes]], columns=df_treinos.columns)
-                df_treinos = pd.concat([df_treinos, novo_treino], ignore_index=True)
-                df_treinos.to_excel(treino_path, index=False)
-                st.success("Treino registrado!")
-        
-        st.write(df_treinos)
-    
-    # --- Lousa Tática ---
+        st.header("🥅 Registro de Treinos")
+        df = carregar_dados()
+        atleta = st.selectbox("Selecione o Atleta", df["Atleta"].dropna().unique())
+        treino = st.text_area("Descrição do Treino")
+        notas = st.text_area("Notas Adicionais")
+        if st.button("Salvar Treino"):
+            df.loc[df["Atleta"] == atleta, ["Treino", "Notas"]] = [treino, notas]
+            salvar_dados(df)
+            st.success("Treino registrado!")
+        st.dataframe(df)
+
     elif aba == "Lousa Tática":
-        st.title("Lousa Tática")
-        
-        col1, col2 = st.columns(2)
-        
-        # Lousa Livre
-        with col1:
-            st.subheader("Lousa Livre")
-            st.write("Arraste os pontos para montar sua estratégia.")
-            canvas_result = st.canvas(
-                fill_color="rgba(255, 165, 0, 0.5)",
-                stroke_width=3,
-                stroke_color="#000000",
-                background_color="#FFFFFF",
-                height=400,
-                width=400,
-                key="canvas_livre"
-            )
-        
-        # Lousa com Campo e 11 Atletas
-        with col2:
-            st.subheader("Lousa com Campo e 11 Atletas")
-            st.write("Clique e arraste os jogadores para posicioná-los.")
-            
-            jogadores = [f"Jogador {i+1}" for i in range(11)]
-            posicoes = {j: [200 + i * 50, 200] for i, j in enumerate(jogadores)}
-            
-            for jogador in jogadores:
-                x, y = st.slider(f"{jogador} - Posição X", 0, 400, posicoes[jogador][0]), \
-                       st.slider(f"{jogador} - Posição Y", 0, 400, posicoes[jogador][1])
-                posicoes[jogador] = [x, y]
-            
-            campo = st.image("campo.jpg")  # Substitua pelo caminho real do fundo do campo
-            st.write("Posicione os jogadores conforme sua estratégia.")
-    
+        st.header("📋 Lousa Tática Interativa")
+        tipo = st.radio("Escolha o tipo de lousa", ["Livre", "Campo de Futebol"])
+
+        if tipo == "Livre":
+            st.write("Arraste os pontos para simular movimentações.")
+            positions = [(i*50, i*50) for i in range(5)]
+            positions = dnd_grid(positions, grid_size=(400, 400))
+
+        elif tipo == "Campo de Futebol":
+            st.image("campo.png", width=600)
+            positions = [(100, 50), (200, 50), (300, 50), (400, 50), (500, 50), (150, 200), (250, 200), (350, 200), (450, 200), (275, 350), (275, 500)]
+            positions = dnd_grid(positions, grid_size=(600, 800))
+
+if "logged_in" not in st.session_state:
+    login()
 else:
-    st.warning("Por favor, faça login para acessar o sistema.")
+    tela_principal()
