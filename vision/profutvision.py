@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-from streamlit_dnd import dnd_grid  # Biblioteca para drag and drop (pip install streamlit-dnd)
+from st_aggrid import AgGrid  # Pacote para grids interativas (pip install st-aggrid)
 from PIL import Image
 
 # Carregar credenciais do secrets.toml
@@ -49,7 +49,7 @@ def tela_principal():
         st.dataframe(df["Atleta"].dropna())
 
     elif aba == "Registro de Treinos":
-        st.header("🥅 Registro de Treinos")
+        st.header("Registro de Treinos")
         df = carregar_dados()
         atleta = st.selectbox("Selecione o Atleta", df["Atleta"].dropna().unique())
         treino = st.text_area("Descrição do Treino")
@@ -61,18 +61,25 @@ def tela_principal():
         st.dataframe(df)
 
     elif aba == "Lousa Tática":
-        st.header("📋 Lousa Tática Interativa")
+        st.header("Lousa Tática Interativa")
         tipo = st.radio("Escolha o tipo de lousa", ["Livre", "Campo de Futebol"])
 
         if tipo == "Livre":
             st.write("Arraste os pontos para simular movimentações.")
-            positions = [(i*50, i*50) for i in range(5)]
-            positions = dnd_grid(positions, grid_size=(400, 400))
+            # Criar um grid interativo com AgGrid
+            positions = pd.DataFrame({
+                'x': [i*50 for i in range(5)],
+                'y': [i*50 for i in range(5)]
+            })
+            grid_response = AgGrid(positions, editable=True, height=400, width=400)
 
         elif tipo == "Campo de Futebol":
             st.image("campo.png", width=600)
-            positions = [(100, 50), (200, 50), (300, 50), (400, 50), (500, 50), (150, 200), (250, 200), (350, 200), (450, 200), (275, 350), (275, 500)]
-            positions = dnd_grid(positions, grid_size=(600, 800))
+            positions = pd.DataFrame({
+                'x': [100, 200, 300, 400, 500, 150, 250, 350, 450, 275, 275],
+                'y': [50, 50, 50, 50, 50, 200, 200, 200, 200, 350, 500]
+            })
+            grid_response = AgGrid(positions, editable=True, height=800, width=600)
 
 if "logged_in" not in st.session_state:
     login()
