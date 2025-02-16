@@ -1,4 +1,4 @@
 streamlit
 pandas
 numpy
-git+https://github.com/andfanilo/streamlit-dnd@main
+streamlit-aggrid
