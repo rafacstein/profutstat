@@ -42,7 +42,6 @@ def login():
     if st.button("Entrar"):
         if username == st.secrets["credentials"]["username"] and password == st.secrets["credentials"]["password"]:
             st.session_state["logged_in"] = True
-            st.session_state.clear()
         else:
             st.error("Usuário ou senha incorretos!")
 
@@ -130,7 +129,7 @@ def tela_registro_atividade():
         st.write("Nenhuma atividade de treino registrada.")
 
 # Verifica se o usuário está logado
-if "logged_in" not in st.session_state:
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
     st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)
