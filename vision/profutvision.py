@@ -28,7 +28,7 @@ def login():
 
 # 📌 Tela de Registro de Atletas
 def tela_registro_atletas():
-    st.title("🏃‍♂️ Registro de Atletas")
+    st.title("Registro de Atletas")
     
     nome = st.text_input("Nome")
     idade = st.number_input("Idade", min_value=10, max_value=50, step=1)
@@ -97,10 +97,10 @@ def tela_calendario():
 
 # 🚀 Tela Principal
 def tela_principal():
-    st.sidebar.image("logo.png", width=150)
+    st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)
     st.sidebar.title("Menu")
 
-    opcao = st.sidebar.radio("Escolha uma opção:", ["🏃‍♂️ Registro de Atletas", "📋 Registro de Treinos", "📅 Calendário de Atividades"])
+    opcao = st.sidebar.radio("Escolha uma opção:", ["📋 Registro de Atletas", "📋 Registro de Treinos", "📅 Calendário de Atividades"])
 
     if opcao == "🏃‍♂️ Registro de Atletas":
         tela_registro_atletas()
