@@ -3,8 +3,8 @@ from supabase import create_client, Client
 from datetime import datetime
 
 # 🔒 Recuperando credenciais do Supabase via Streamlit Secrets
-url = st.secrets["supabase"]["SUPABASE_URL"]
-key = st.secrets["supabase"]["SUPABASE_KEY"]
+url = st.secrets["supabase"]["supabase_url"]
+key = st.secrets["supabase"]["supabase_key"]
 supabase: Client = create_client(url, key)
 
 # Função para registrar atletas
