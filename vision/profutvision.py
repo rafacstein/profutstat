@@ -3,8 +3,8 @@ from supabase import create_client, Client
 import os
 
 # Recuperando as credenciais do Supabase via Streamlit Secrets
-url = st.secrets["supabase"]["supabase_url"]
-key = st.secrets["supabase"]["supabase_key"]
+url = st.secrets["supabase_url"]
+key = st.secrets["supabase_key"]
 
 # Inicializando o cliente do Supabase
 supabase: Client = create_client(url, key)
@@ -30,9 +30,12 @@ def salvar_atleta(nome, idade, time):
 # Função para registrar atividades no calendário
 def registrar_atividade(data_selecionada, atividade):
     try:
+        # Convertendo data para string no formato YYYY-MM-DD
+        data_str = data_selecionada.strftime("%Y-%m-%d")
+        
         # Inserção de dados na tabela 'calendario' no esquema 'api'
         atividade_data = {
-            "data": data_selecionada,
+            "data": data_str,
             "atividade": atividade
         }
         response = supabase.table("api.calendario").upsert(atividade_data).execute()  # Esquema 'api'
