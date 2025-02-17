@@ -3,102 +3,114 @@ import pandas as pd
 import datetime
 from supabase import create_client, Client
 
-# Configuração do Supabase
-SUPABASE_URL = "https://SEU_PROJETO.supabase.co"
-SUPABASE_KEY = "SUA_CHAVE_ANON"
+# 🔑 Carregar credenciais do Streamlit Secrets
+USERNAME = st.secrets["credentials"]["username"]
+PASSWORD = st.secrets["credentials"]["password"]
+
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
+
+# Conectar ao Supabase
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Função para carregar dados de atletas
-def carregar_atletas():
-    response = supabase.table("atletas").select("*").execute()
-    return pd.DataFrame(response.data)
+# 🔐 Função de Login
+def login():
+    st.title("🔑 Login")
+    user_input = st.text_input("Usuário")
+    pass_input = st.text_input("Senha", type="password")
 
-# Função para adicionar um atleta
-def adicionar_atleta(nome, idade, posicao, pos_alt, nacionalidade, altura, peso, pe, obs):
-    supabase.table("atletas").insert({
-        "nome": nome, "idade": idade, "posicao": posicao, 
-        "posicoes_alternativas": pos_alt, "nacionalidade": nacionalidade,
-        "altura": altura, "peso": peso, "pe": pe, "observacoes": obs
-    }).execute()
+    if st.button("Entrar"):
+        if user_input == USERNAME and pass_input == PASSWORD:
+            st.session_state["logged_in"] = True
+            st.rerun()
+        else:
+            st.error("Usuário ou senha incorretos! ❌")
 
-# Função para carregar treinos
-def carregar_treinos():
-    response = supabase.table("treinos").select("*").execute()
-    return pd.DataFrame(response.data)
-
-# Função para salvar um treino
-def salvar_treino(atleta, data, atividade, obs):
-    supabase.table("treinos").insert({
-        "atleta": atleta, "data": data, "atividade": atividade, "observacoes": obs
-    }).execute()
-
-# Função para carregar calendário
-def carregar_calendario():
-    response = supabase.table("calendario").select("*").execute()
-    return pd.DataFrame(response.data)
-
-# Função para salvar no calendário
-def salvar_calendario(data, atividade):
-    supabase.table("calendario").upsert({
-        "data": data, "atividade": atividade
-    }).execute()
-
-# Interface no Streamlit
-st.title("⚽ Gestão de Atletas e Treinos")
-
-aba = st.sidebar.radio("Menu", ["Cadastro de Atletas", "Registro de Treinos", "Calendário de Atividades"])
-
-# 📋 Cadastro de Atletas
-if aba == "Cadastro de Atletas":
-    st.header("📋 Cadastro de Atletas")
+# 📌 Tela de Registro de Atletas
+def tela_registro_atletas():
+    st.title("🏃‍♂️ Registro de Atletas")
     
     nome = st.text_input("Nome")
-    idade = st.number_input("Idade", min_value=10, max_value=40, step=1)
-    posicao = st.selectbox("Posição", ["Goleiro", "Zagueiro", "Lateral", "Volante", "Meia", "Atacante"])
-    pos_alt = st.text_input("Posições Alternativas")
+    idade = st.number_input("Idade", min_value=10, max_value=50, step=1)
+    posicao = st.text_input("Posição")
+    posicoes_alt = st.text_input("Posições Alternativas")
     nacionalidade = st.text_input("Nacionalidade")
-    altura = st.number_input("Altura (m)", format="%.2f")
-    peso = st.number_input("Peso (kg)", format="%.1f")
-    pe = st.selectbox("Pé Dominante", ["Destro", "Canhoto", "Ambidestro"])
-    obs = st.text_area("Observações")
+    altura = st.number_input("Altura (cm)", min_value=100, max_value=220, step=1)
+    peso = st.number_input("Peso (kg)", min_value=30, max_value=120, step=1)
+    pe = st.selectbox("Pé dominante", ["Direito", "Esquerdo", "Ambidestro"])
+    observacoes = st.text_area("Observações")
 
-    if st.button("Adicionar Atleta"):
-        adicionar_atleta(nome, idade, posicao, pos_alt, nacionalidade, altura, peso, pe, obs)
-        st.success("Atleta cadastrado!")
+    if st.button("Salvar Atleta"):
+        data = {
+            "nome": nome,
+            "idade": idade,
+            "posicao": posicao,
+            "posicoes_alt": posicoes_alt,
+            "nacionalidade": nacionalidade,
+            "altura": altura,
+            "peso": peso,
+            "pe": pe,
+            "observacoes": observacoes,
+        }
+        supabase.table("atletas").insert(data).execute()
+        st.success(f"✅ Atleta {nome} registrado com sucesso!")
 
-    df = carregar_atletas()
-    st.dataframe(df)
+# 📌 Tela de Registro de Treinos
+def tela_registro_treinos():
+    st.title("📋 Registro de Treinos")
 
-# 🏋️‍♂️ Registro de Treinos
-elif aba == "Registro de Treinos":
-    st.header("🏋️‍♂️ Registro de Treinos")
-    
-    df = carregar_atletas()
-    atleta = st.selectbox("Selecione o Atleta", df["nome"].dropna().unique())
-    data = st.date_input("Data do Treino", datetime.date.today())
+    data = st.date_input("Data do treino", datetime.date.today())
     atividade = st.text_area("Descrição da Atividade")
-    obs = st.text_area("Observações")
+    observacoes = st.text_area("Observações")
 
     if st.button("Salvar Treino"):
-        salvar_treino(atleta, data, atividade, obs)
-        st.success("Treino registrado!")
+        treino_data = {
+            "data": str(data),
+            "atividade": atividade,
+            "observacoes": observacoes,
+        }
+        supabase.table("treinos").insert(treino_data).execute()
+        st.success(f"✅ Treino registrado para {data}!")
 
-    df_treinos = carregar_treinos()
-    st.dataframe(df_treinos)
-
-# 📅 Calendário de Atividades
-elif aba == "Calendário de Atividades":
-    st.header("📅 Calendário de Atividades")
+# 📆 Tela do Calendário de Atividades
+def tela_calendario():
+    st.title("📅 Calendário de Atividades")
 
     hoje = datetime.date.today()
     fim_ano = datetime.date(hoje.year, 12, 31)
 
-    data = st.date_input("Selecione a Data", min_value=hoje, max_value=fim_ano)
-    atividade = st.text_area("Atividade do Dia")
+    data = st.date_input("Selecionar data", min_value=hoje, max_value=fim_ano)
+    atividade = st.text_area("Atividade planejada para este dia")
 
     if st.button("Salvar Atividade"):
-        salvar_calendario(data, atividade)
-        st.success("Atividade salva no calendário!")
+        supabase.table("calendario").insert({"data": str(data), "atividade": atividade}).execute()
+        st.success(f"✅ Atividade salva para {data}!")
 
-    df_calendario = carregar_calendario()
-    st.dataframe(df_calendario)
+    # Exibir atividades já cadastradas
+    atividades_existentes = supabase.table("calendario").select("*").execute()
+    if atividades_existentes.data:
+        df = pd.DataFrame(atividades_existentes.data)
+        df["data"] = pd.to_datetime(df["data"])
+        df = df.sort_values(by="data")
+        st.write("📅 **Atividades Cadastradas**")
+        st.dataframe(df)
+
+# 🚀 Tela Principal
+def tela_principal():
+    st.sidebar.image("logo.png", width=150)
+    st.sidebar.title("Menu")
+
+    opcao = st.sidebar.radio("Escolha uma opção:", ["🏃‍♂️ Registro de Atletas", "📋 Registro de Treinos", "📅 Calendário de Atividades"])
+
+    if opcao == "🏃‍♂️ Registro de Atletas":
+        tela_registro_atletas()
+    elif opcao == "📋 Registro de Treinos":
+        tela_registro_treinos()
+    elif opcao == "📅 Calendário de Atividades":
+        tela_calendario()
+
+# 🔑 Controle de Acesso
+if "logged_in" not in st.session_state:
+    login()
+else:
+    tela_principal()
