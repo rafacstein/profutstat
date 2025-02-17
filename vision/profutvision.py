@@ -42,7 +42,7 @@ def login():
     if st.button("Entrar"):
         if username == st.secrets["credentials"]["username"] and password == st.secrets["credentials"]["password"]:
             st.session_state["logged_in"] = True
-            st.experimental_rerun()
+            st.session_state.clear()
         else:
             st.error("Usuário ou senha incorretos!")
 
