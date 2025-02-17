@@ -4,9 +4,35 @@ from supabase import create_client
 import pandas as pd
 
 # Configuração do Supabase
-SUPABASE_URL = st.secrets["supabase"]["supabase_url"]
-SUPABASE_KEY = st.secrets["supabase"]["supabase_key"]
+SUPABASE_URL = st.secrets[supabase]["supabase_url"]
+SUPABASE_KEY = st.secrets[supabase]["supabase_key"]
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Função para verificar se a tabela existe, e criar se necessário
+def criar_tabelas():
+    # Tabela de Atletas
+    atletas_schema = [
+        {"nome": "string", "idade": "int", "posicao": "string", "posicao_alt": "string", "nacionalidade": "string", 
+         "altura": "int", "peso": "int", "pe": "string", "observacoes": "text"}
+    ]
+    
+    # Tabela de Calendário
+    calendario_schema = [
+        {"data": "date", "atividade": "text", "observacoes": "text"}
+    ]
+    
+    # Criação das tabelas caso não existam
+    for tabela, schema in [("atletas", atletas_schema), ("calendario", calendario_schema)]:
+        try:
+            # Tentativa de inserir um registro (upsert para garantir que a tabela exista)
+            supabase.table(tabela).upsert({"data": "dummy"}).execute()
+        except Exception as e:
+            print(f"Tabela {tabela} não encontrada. Criando nova tabela...")
+            # Criar a tabela manualmente aqui caso não exista
+            # No caso do Supabase, use a interface para criar as tabelas, pois não há uma API para criação de tabela direta
+
+# Chame a função ao iniciar a aplicação
+criar_tabelas()
 
 # Função de Login
 def login():
@@ -16,7 +42,7 @@ def login():
     if st.button("Entrar"):
         if username == st.secrets["credentials"]["username"] and password == st.secrets["credentials"]["password"]:
             st.session_state["logged_in"] = True
-            st.session_state.clear()
+            st.experimental_rerun()
         else:
             st.error("Usuário ou senha incorretos!")
 
@@ -77,12 +103,38 @@ def tela_calendario():
     else:
         st.write("Nenhuma atividade cadastrada.")
 
+# Tela de Registro de Atividade de Treino
+def tela_registro_atividade():
+    st.title("📋 Registro de Atividades de Treino")
+    
+    data = st.date_input("Data do Treino")
+    registro = st.text_area("Registro do Treino")
+    observacoes = st.text_area("Observações")
+    
+    if st.button("Salvar Atividade de Treino"):
+        atividade_treino = {
+            "data": str(data),
+            "atividade": registro,
+            "observacoes": observacoes
+        }
+        supabase.table("calendario").insert(atividade_treino).execute()
+        st.success("Atividade de Treino registrada com sucesso!")
+        st.experimental_rerun()
+    
+    st.subheader("Atividades de Treino Registradas")
+    atividades = supabase.table("calendario").select("*").execute().data
+    if atividades:
+        df = pd.DataFrame(atividades)
+        st.dataframe(df)
+    else:
+        st.write("Nenhuma atividade de treino registrada.")
+
 # Verifica se o usuário está logado
 if "logged_in" not in st.session_state:
     login()
 else:
     st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)
-    menu = st.sidebar.radio("Menu", ["🏠 Home", "📋 Registro de Atletas", "📅 Calendário"])
+    menu = st.sidebar.radio("Menu", ["🏠 Home", "📋 Registro de Atletas", "📅 Calendário", "📋 Registro de Atividade Treino"])
 
     if menu == "🏠 Home":
         st.title("🏠 Página Inicial")
@@ -91,3 +143,5 @@ else:
         tela_registro_atletas()
     elif menu == "📅 Calendário":
         tela_calendario()
+    elif menu == "🏋️‍♀️ Registro de Atividade Treino":
+        tela_registro_atividade()
