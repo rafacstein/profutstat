@@ -62,32 +62,45 @@ def tela_registro_atletas():
         st.warning("Erro ao carregar atletas. Talvez a tabela ainda não exista.")
 
 # Tela de Registro de Atividades de Treino
+# Tela de Registro de Atividades de Treino
 def tela_registro_atividades():
     st.title("🏋️‍♂️ Registro de Atividades de Treino")
 
-    data = st.date_input("Data", value=date.today())
-    registro = st.text_area("Registro do Treino")
-    observacoes = st.text_area("Observações")
+    # Formulário para registrar uma nova atividade
+    with st.form("registro_treino_form"):
+        data = st.date_input("Data", value=date.today())
+        registro = st.text_area("Registro do Treino")
+        observacoes = st.text_area("Observações")
+        submit_button = st.form_submit_button("Salvar Registro")
 
-    if st.button("Salvar Registro"):
-        atividade = {
-            "data": str(data),
-            "registro": registro,
-            "observacoes": observacoes
-        }
-        supabase.table("atividades_treino").insert(atividade).execute()
-        st.success("Atividade registrada com sucesso!")
+        if submit_button:
+            atividade = {
+                "data": str(data),
+                "registro": registro,
+                "observacoes": observacoes
+            }
+            try:
+                supabase.table("registro_treino").insert(atividade).execute()
+                st.success("Atividade registrada com sucesso!")
+                st.experimental_rerun()  # Recarrega a página para exibir os dados atualizados
+            except Exception as e:
+                st.error(f"Erro ao salvar atividade: {e}")
 
-    st.subheader("Atividades Registradas")
+    # Exibe os registros de atividades cadastrados
+    st.subheader("📋 Atividades Registradas")
     try:
-        atividades = supabase.table("atividades_treino").select("*").execute()
-        if atividades.data:
-            df = pd.DataFrame(atividades.data)
-            st.dataframe(df)
+        response = supabase.table("registro_treino").select("*").execute()
+        atividades = response.data
+
+        if atividades:
+            df = pd.DataFrame(atividades)
+            df["data"] = pd.to_datetime(df["data"]).dt.strftime("%d/%m/%Y")  # Formata a data
+            st.dataframe(df, use_container_width=True)
         else:
-            st.write("Nenhuma atividade registrada ainda.")
+            st.info("Nenhuma atividade registrada ainda.")
     except Exception as e:
         st.warning("Erro ao carregar atividades. Talvez a tabela ainda não exista.")
+
 
 # Tela de Calendário
 def tela_calendario():
