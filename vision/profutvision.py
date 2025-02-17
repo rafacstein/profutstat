@@ -3,8 +3,8 @@ from supabase import create_client, Client
 import os
 
 # Recuperando as credenciais do Supabase via Streamlit Secrets
-url = st.secrets["supabase_url"]
-key = st.secrets["supabase_key"]
+url = st.secrets["supabase"]["supabase_url"]
+key = st.secrets["supabase"]["supabase_key"]
 
 # Inicializando o cliente do Supabase
 supabase: Client = create_client(url, key)
