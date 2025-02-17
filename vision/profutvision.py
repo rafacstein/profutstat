@@ -1,116 +1,93 @@
 import streamlit as st
+from datetime import date, timedelta
+from supabase import create_client
 import pandas as pd
-import datetime
-from supabase import create_client, Client
 
-# 🔑 Carregar credenciais do Streamlit Secrets
-USERNAME = st.secrets["credentials"]["username"]
-PASSWORD = st.secrets["credentials"]["password"]
+# Configuração do Supabase
+SUPABASE_URL = st.secrets["supabase_url"]
+SUPABASE_KEY = st.secrets["supabase_key"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
-
-# Conectar ao Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# 🔐 Função de Login
+# Função de Login
 def login():
-    st.title("🔑 Login")
-    user_input = st.text_input("Usuário")
-    pass_input = st.text_input("Senha", type="password")
-
+    st.title("🔐 Login")
+    username = st.text_input("Usuário")
+    password = st.text_input("Senha", type="password")
     if st.button("Entrar"):
-        if user_input == USERNAME and pass_input == PASSWORD:
+        if username == st.secrets["credentials"]["username"] and password == st.secrets["credentials"]["password"]:
             st.session_state["logged_in"] = True
-            st.rerun()
+            st.experimental_rerun()
         else:
-            st.error("Usuário ou senha incorretos! ❌")
+            st.error("Usuário ou senha incorretos!")
 
-# 📌 Tela de Registro de Atletas
+# Tela de Registro de Atletas
 def tela_registro_atletas():
-    st.title("Registro de Atletas")
+    st.title("📋 Registro de Atletas")
     
     nome = st.text_input("Nome")
     idade = st.number_input("Idade", min_value=10, max_value=50, step=1)
     posicao = st.text_input("Posição")
-    posicoes_alt = st.text_input("Posições Alternativas")
+    posicao_alt = st.text_input("Posições Alternativas")
     nacionalidade = st.text_input("Nacionalidade")
     altura = st.number_input("Altura (cm)", min_value=100, max_value=220, step=1)
     peso = st.number_input("Peso (kg)", min_value=30, max_value=120, step=1)
-    pe = st.selectbox("Pé dominante", ["Direito", "Esquerdo", "Ambidestro"])
+    pe = st.selectbox("Pé Dominante", ["Destro", "Canhoto", "Ambidestro"])
     observacoes = st.text_area("Observações")
 
     if st.button("Salvar Atleta"):
-        data = {
+        atleta = {
             "nome": nome,
             "idade": idade,
             "posicao": posicao,
-            "posicoes_alt": posicoes_alt,
+            "posicao_alt": posicao_alt,
             "nacionalidade": nacionalidade,
             "altura": altura,
             "peso": peso,
             "pe": pe,
-            "observacoes": observacoes,
+            "observacoes": observacoes
         }
-        supabase.table("atletas").insert(data).execute()
-        st.success(f"✅ Atleta {nome} registrado com sucesso!")
+        supabase.table("atletas").insert(atleta).execute()
+        st.success("Atleta cadastrado com sucesso!")
+        st.experimental_rerun()
+    
+    st.subheader("Lista de Atletas Cadastrados")
+    atletas = supabase.table("atletas").select("*").execute().data
+    if atletas:
+        df = pd.DataFrame(atletas)
+        st.dataframe(df)
+    else:
+        st.write("Nenhum atleta cadastrado.")
 
-# 📌 Tela de Registro de Treinos
-def tela_registro_treinos():
-    st.title("📋 Registro de Treinos")
-
-    data = st.date_input("Data do treino", datetime.date.today())
-    atividade = st.text_area("Descrição da Atividade")
-    observacoes = st.text_area("Observações")
-
-    if st.button("Salvar Treino"):
-        treino_data = {
-            "data": str(data),
-            "atividade": atividade,
-            "observacoes": observacoes,
-        }
-        supabase.table("treinos").insert(treino_data).execute()
-        st.success(f"✅ Treino registrado para {data}!")
-
-# 📆 Tela do Calendário de Atividades
+# Tela de Calendário
 def tela_calendario():
     st.title("📅 Calendário de Atividades")
-
-    hoje = datetime.date.today()
-    fim_ano = datetime.date(hoje.year, 12, 31)
-
-    data = st.date_input("Selecionar data", min_value=hoje, max_value=fim_ano)
-    atividade = st.text_area("Atividade planejada para este dia")
-
+    hoje = date.today()
+    fim_ano = date(hoje.year, 12, 31)
+    dias = [(hoje + timedelta(days=i)).strftime("%Y-%m-%d") for i in range((fim_ano - hoje).days + 1)]
+    data_selecionada = st.selectbox("Selecione uma data", dias)
+    atividade = st.text_area("Atividade do dia")
     if st.button("Salvar Atividade"):
-        supabase.table("calendario").insert({"data": str(data), "atividade": atividade}).execute()
-        st.success(f"✅ Atividade salva para {data}!")
-
-    # Exibir atividades já cadastradas
-    atividades_existentes = supabase.table("calendario").select("*").execute()
-    if atividades_existentes.data:
-        df = pd.DataFrame(atividades_existentes.data)
-        df["data"] = pd.to_datetime(df["data"])
-        df = df.sort_values(by="data")
-        st.write("📅 **Atividades Cadastradas**")
+        supabase.table("calendario").upsert({"data": data_selecionada, "atividade": atividade}).execute()
+        st.success("Atividade salva!")
+    st.subheader("Atividades da Semana")
+    atividades = supabase.table("calendario").select("*").execute().data
+    if atividades:
+        df = pd.DataFrame(atividades)
         st.dataframe(df)
+    else:
+        st.write("Nenhuma atividade cadastrada.")
 
-# 🚀 Tela Principal
-def tela_principal():
-    st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)
-    st.sidebar.title("Menu")
-
-    opcao = st.sidebar.radio("Escolha uma opção:", ["📋 Registro de Atletas", "📋 Registro de Treinos", "📅 Calendário de Atividades"])
-
-    if opcao == "🏃‍♂️ Registro de Atletas":
-        tela_registro_atletas()
-    elif opcao == "📋 Registro de Treinos":
-        tela_registro_treinos()
-    elif opcao == "📅 Calendário de Atividades":
-        tela_calendario()
-
-# 🔑 Controle de Acesso
+# Verifica se o usuário está logado
 if "logged_in" not in st.session_state:
     login()
 else:
-    tela_principal()
+    st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)
+    menu = st.sidebar.radio("Menu", ["🏠 Home", "📋 Registro de Atletas", "📅 Calendário"])
+
+    if menu == "🏠 Home":
+        st.title("🏠 Página Inicial")
+        st.write("Bem-vindo ao sistema de gerenciamento de atletas!")
+    elif menu == "📋 Registro de Atletas":
+        tela_registro_atletas()
+    elif menu == "📅 Calendário":
+        tela_calendario()
