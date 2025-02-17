@@ -1,87 +1,104 @@
 import streamlit as st
 import pandas as pd
-import os
-from st_aggrid import AgGrid  # Pacote para grids interativas (pip install st-aggrid)
-from PIL import Image
+import datetime
+from supabase import create_client, Client
 
-# Carregar credenciais do secrets.toml
-username = st.secrets["credentials"]["username"]
-password = st.secrets["credentials"]["password"]
+# Configuração do Supabase
+SUPABASE_URL = "https://SEU_PROJETO.supabase.co"
+SUPABASE_KEY = "SUA_CHAVE_ANON"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Função para autenticação
-def login():
-    st.title("🔑 Login")
-    user_input = st.text_input("Usuário")
-    pass_input = st.text_input("Senha", type="password")
-    if st.button("Entrar"):
-        if user_input == username and pass_input == password:
-            st.session_state["logged_in"] = True
-            st.rerun()
-        else:
-            st.error("Usuário ou senha incorretos! ❌")
+# Função para carregar dados de atletas
+def carregar_atletas():
+    response = supabase.table("atletas").select("*").execute()
+    return pd.DataFrame(response.data)
 
-# Caminho do banco de dados (Excel temporário)
-DATA_PATH = "dados_treino.xlsx"
+# Função para adicionar um atleta
+def adicionar_atleta(nome, idade, posicao, pos_alt, nacionalidade, altura, peso, pe, obs):
+    supabase.table("atletas").insert({
+        "nome": nome, "idade": idade, "posicao": posicao, 
+        "posicoes_alternativas": pos_alt, "nacionalidade": nacionalidade,
+        "altura": altura, "peso": peso, "pe": pe, "observacoes": obs
+    }).execute()
 
-def carregar_dados():
-    if os.path.exists(DATA_PATH):
-        return pd.read_excel(DATA_PATH)
-    else:
-        return pd.DataFrame(columns=["Atleta", "Treino", "Notas"])
+# Função para carregar treinos
+def carregar_treinos():
+    response = supabase.table("treinos").select("*").execute()
+    return pd.DataFrame(response.data)
 
-def salvar_dados(df):
-    df.to_excel(DATA_PATH, index=False)
+# Função para salvar um treino
+def salvar_treino(atleta, data, atividade, obs):
+    supabase.table("treinos").insert({
+        "atleta": atleta, "data": data, "atividade": atividade, "observacoes": obs
+    }).execute()
 
-def tela_principal():
-    st.sidebar.image("https://github.com/rafacstein/profutstat/blob/main/vision/logo%20profutstat%203.jpeg?raw=true", width=150)  # Logo no topo
-    st.title("⚽ Gestão de Treinos e Táticas")
-    aba = st.sidebar.radio("Menu", ["Cadastro de Atletas", "Registro de Treinos", "Lousa Tática"])
+# Função para carregar calendário
+def carregar_calendario():
+    response = supabase.table("calendario").select("*").execute()
+    return pd.DataFrame(response.data)
 
-    if aba == "Cadastro de Atletas":
-        st.header("📋 Cadastro de Atletas")
-        df = carregar_dados()
-        nome = st.text_input("Nome do Atleta")
-        if st.button("Adicionar"):
-            if nome:
-                df = df.append({"Atleta": nome, "Treino": "", "Notas": ""}, ignore_index=True)
-                salvar_dados(df)
-                st.success("Atleta cadastrado!")
-        st.dataframe(df["Atleta"].dropna())
+# Função para salvar no calendário
+def salvar_calendario(data, atividade):
+    supabase.table("calendario").upsert({
+        "data": data, "atividade": atividade
+    }).execute()
 
-    elif aba == "Registro de Treinos":
-        st.header("Registro de Treinos")
-        df = carregar_dados()
-        atleta = st.selectbox("Selecione o Atleta", df["Atleta"].dropna().unique())
-        treino = st.text_area("Descrição do Treino")
-        notas = st.text_area("Notas Adicionais")
-        if st.button("Salvar Treino"):
-            df.loc[df["Atleta"] == atleta, ["Treino", "Notas"]] = [treino, notas]
-            salvar_dados(df)
-            st.success("Treino registrado!")
-        st.dataframe(df)
+# Interface no Streamlit
+st.title("⚽ Gestão de Atletas e Treinos")
 
-    elif aba == "Lousa Tática":
-        st.header("Lousa Tática Interativa")
-        tipo = st.radio("Escolha o tipo de lousa", ["Livre", "Campo de Futebol"])
+aba = st.sidebar.radio("Menu", ["Cadastro de Atletas", "Registro de Treinos", "Calendário de Atividades"])
 
-        if tipo == "Livre":
-            st.write("Arraste os pontos para simular movimentações.")
-            # Criar um grid interativo com AgGrid
-            positions = pd.DataFrame({
-                'x': [i*50 for i in range(5)],
-                'y': [i*50 for i in range(5)]
-            })
-            grid_response = AgGrid(positions, editable=True, height=400, width=400)
+# 📋 Cadastro de Atletas
+if aba == "Cadastro de Atletas":
+    st.header("📋 Cadastro de Atletas")
+    
+    nome = st.text_input("Nome")
+    idade = st.number_input("Idade", min_value=10, max_value=40, step=1)
+    posicao = st.selectbox("Posição", ["Goleiro", "Zagueiro", "Lateral", "Volante", "Meia", "Atacante"])
+    pos_alt = st.text_input("Posições Alternativas")
+    nacionalidade = st.text_input("Nacionalidade")
+    altura = st.number_input("Altura (m)", format="%.2f")
+    peso = st.number_input("Peso (kg)", format="%.1f")
+    pe = st.selectbox("Pé Dominante", ["Destro", "Canhoto", "Ambidestro"])
+    obs = st.text_area("Observações")
 
-        elif tipo == "Campo de Futebol":
-            st.image("https://github.com/rafacstein/profutstat/blob/main/vision/campo.jpg?raw=true", width=600)
-            positions = pd.DataFrame({
-                'x': [100, 200, 300, 400, 500, 150, 250, 350, 450, 275, 275],
-                'y': [50, 50, 50, 50, 50, 200, 200, 200, 200, 350, 500]
-            })
-            grid_response = AgGrid(positions, editable=True, height=800, width=600)
+    if st.button("Adicionar Atleta"):
+        adicionar_atleta(nome, idade, posicao, pos_alt, nacionalidade, altura, peso, pe, obs)
+        st.success("Atleta cadastrado!")
 
-if "logged_in" not in st.session_state:
-    login()
-else:
-    tela_principal()
+    df = carregar_atletas()
+    st.dataframe(df)
+
+# 🏋️‍♂️ Registro de Treinos
+elif aba == "Registro de Treinos":
+    st.header("🏋️‍♂️ Registro de Treinos")
+    
+    df = carregar_atletas()
+    atleta = st.selectbox("Selecione o Atleta", df["nome"].dropna().unique())
+    data = st.date_input("Data do Treino", datetime.date.today())
+    atividade = st.text_area("Descrição da Atividade")
+    obs = st.text_area("Observações")
+
+    if st.button("Salvar Treino"):
+        salvar_treino(atleta, data, atividade, obs)
+        st.success("Treino registrado!")
+
+    df_treinos = carregar_treinos()
+    st.dataframe(df_treinos)
+
+# 📅 Calendário de Atividades
+elif aba == "Calendário de Atividades":
+    st.header("📅 Calendário de Atividades")
+
+    hoje = datetime.date.today()
+    fim_ano = datetime.date(hoje.year, 12, 31)
+
+    data = st.date_input("Selecione a Data", min_value=hoje, max_value=fim_ano)
+    atividade = st.text_area("Atividade do Dia")
+
+    if st.button("Salvar Atividade"):
+        salvar_calendario(data, atividade)
+        st.success("Atividade salva no calendário!")
+
+    df_calendario = carregar_calendario()
+    st.dataframe(df_calendario)
