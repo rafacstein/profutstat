@@ -92,14 +92,23 @@ def tela_calendario():
     dias = [(hoje + timedelta(days=i)).strftime("%Y-%m-%d") for i in range((fim_ano - hoje).days + 1)]
     data_selecionada = st.selectbox("Selecione uma data", dias)
     atividade = st.text_area("Atividade do dia")
+    
     if st.button("Salvar Atividade"):
         atividade_data = {
             "data": data_selecionada,
             "atividade": atividade,
             "user_id": st.session_state.get("user_id")  # Adicionando user_id
         }
-        supabase.table("calendario").upsert(atividade_data).execute()
-        st.success("Atividade salva!")
+        
+        try:
+            # Tentativa de realizar o upsert
+            response = supabase.table("calendario").upsert(atividade_data).execute()
+            st.success("Atividade salva!")
+        except Exception as e:
+            # Exibe o erro completo para debug
+            st.error(f"Erro ao salvar atividade: {e}")
+            st.json(e.args)
+
     st.subheader("Atividades da Semana")
     atividades = supabase.table("calendario").select("*").execute().data
     if atividades:
@@ -107,6 +116,7 @@ def tela_calendario():
         st.dataframe(df)
     else:
         st.write("Nenhuma atividade cadastrada.")
+
 
 # Tela de Registro de Atividade de Treino
 def tela_registro_atividade():
