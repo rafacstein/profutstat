@@ -9,11 +9,13 @@ supabase_key = st.secrets["supabase"]["supabase_key"]
 # 🔹 Criando conexão com o Supabase
 try:
     supabase = create_client(supabase_url, supabase_key)
+    st.success("✅ Conexão com Supabase estabelecida!")
 except Exception as e:
     st.error(f"❌ Erro ao conectar no Supabase: {e}")
 
 # 🔹 Pegando o id dos secrets (simulando autenticação)
 user_id = st.secrets.get("USER_ID", "anon")  # Se não houver autenticação, assume "anon"
+st.write(f"🔍 User ID: {user_id}")
 
 # ==============================
 # 📌 Função para tela de atletas
@@ -22,8 +24,8 @@ def tela_registro_atletas():
     st.title("Cadastro de Atletas")
 
     try:
-        # Acesso correto à tabela no schema 'api'
         atletas = supabase.table("api.atletas").select("*").execute().data
+        st.write(f"📊 Atletas carregados: {len(atletas)} registros encontrados.")
     except Exception as e:
         st.error(f"❌ Erro ao carregar atletas: {e}")
         atletas = []
