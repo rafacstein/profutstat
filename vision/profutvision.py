@@ -22,7 +22,8 @@ def tela_registro_atletas():
     st.title("Cadastro de Atletas")
 
     try:
-        atletas = supabase.table("api.atletas").select("*").execute().data
+        # Ajuste aqui para usar o schema correto
+        atletas = supabase.table("atletas").schema("api").select("*").execute().data
     except Exception as e:
         st.error(f"❌ Erro ao carregar atletas: {e}")
         atletas = []
@@ -50,7 +51,7 @@ def tela_registro_atletas():
         }
 
         try:
-            response = supabase.table("api.atletas").insert(novo_atleta).execute()
+            response = supabase.table("atletas").schema("api").insert(novo_atleta).execute()
             st.success("Atleta cadastrado com sucesso!")
         except Exception as e:
             st.error(f"❌ Erro ao cadastrar atleta: {e}")
@@ -72,7 +73,7 @@ def tela_calendario():
         }
 
         try:
-            response = supabase.table("api.calendario").upsert(atividade_data).execute()
+            response = supabase.table("calendario").schema("api").upsert(atividade_data).execute()
             st.success("Atividade registrada com sucesso!")
         except Exception as e:
             st.error(f"❌ Erro ao registrar atividade: {e}")
@@ -100,7 +101,7 @@ def tela_registro_treino():
         }
 
         try:
-            response = supabase.table("api.registro_treino").insert(treino_data).execute()
+            response = supabase.table("registro_treino").schema("api").insert(treino_data).execute()
             st.success("Treino registrado com sucesso!")
         except Exception as e:
             st.error(f"❌ Erro ao registrar treino: {e}")
