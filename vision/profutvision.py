@@ -14,7 +14,7 @@ try:
 except Exception as e:
     print(f"❌ Erro ao conectar no Supabase: {e}")
 
-# 🔹 Pegando o user_id dos secrets (simulando autenticação)
+# 🔹 Pegando o id dos secrets (simulando autenticação)
 user_id = st.secrets.get("USER_ID", "anon")  # Se não houver autenticação, assume "anon"
 print(f"🔍 User ID: {user_id}")
 
@@ -50,7 +50,7 @@ def tela_registro_atletas():
             "peso": peso,
             "pe": pe,
             "observacoes": observacoes,
-            "user_id": user_id  # Garantindo o user_id
+            "id": user_id  # Garantindo o id
         }
 
         try:
@@ -74,7 +74,7 @@ def tela_calendario():
         atividade_data = {
             "data": str(data_selecionada),
             "atividade": atividade,
-            "user_id": user_id  # Garantindo a autenticação do usuário
+            "id": user_id  # Garantindo a autenticação do usuário
         }
 
         try:
@@ -104,11 +104,11 @@ def tela_registro_treino():
             "tipo_treino": tipo_treino,
             "duracao": duracao,
             "desempenho": desempenho,
-            "user_id": user_id  # Garantindo a autenticação do usuário
+            "id": user_id  # Garantindo a autenticação do usuário
         }
 
         try:
-            response = supabase.table("api.registro_treinos").insert(treino_data).execute()
+            response = supabase.table("api.registro_treino").insert(treino_data).execute()
             print(f"✅ Treino registrado: {response}")
             st.success("Treino registrado com sucesso!")
         except Exception as e:
