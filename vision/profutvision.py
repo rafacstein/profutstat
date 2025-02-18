@@ -1,6 +1,5 @@
 import streamlit as st
 from supabase import create_client
-import json
 from datetime import date
 
 # 🔹 Configuração do Supabase (pegando dos secrets no Streamlit Cloud)
@@ -10,13 +9,11 @@ supabase_key = st.secrets["supabase"]["supabase_key"]
 # 🔹 Criando conexão com o Supabase
 try:
     supabase = create_client(supabase_url, supabase_key)
-    print("✅ Conexão com Supabase estabelecida!")
 except Exception as e:
-    print(f"❌ Erro ao conectar no Supabase: {e}")
+    st.error(f"❌ Erro ao conectar no Supabase: {e}")
 
 # 🔹 Pegando o id dos secrets (simulando autenticação)
 user_id = st.secrets.get("USER_ID", "anon")  # Se não houver autenticação, assume "anon"
-print(f"🔍 User ID: {user_id}")
 
 # ==============================
 # 📌 Função para tela de atletas
@@ -26,9 +23,8 @@ def tela_registro_atletas():
 
     try:
         atletas = supabase.table("api.atletas").select("*").execute().data
-        print(f"📊 Atletas carregados: {len(atletas)} registros encontrados.")
     except Exception as e:
-        print(f"❌ Erro ao carregar atletas: {e}")
+        st.error(f"❌ Erro ao carregar atletas: {e}")
         atletas = []
 
     nome = st.text_input("Nome")
@@ -55,11 +51,9 @@ def tela_registro_atletas():
 
         try:
             response = supabase.table("api.atletas").insert(novo_atleta).execute()
-            print(f"✅ Atleta cadastrado: {response}")
             st.success("Atleta cadastrado com sucesso!")
         except Exception as e:
-            print(f"❌ Erro ao cadastrar atleta: {e}")
-            st.error("Erro ao cadastrar atleta. Verifique os logs.")
+            st.error(f"❌ Erro ao cadastrar atleta: {e}")
 
 # ==============================
 # 📌 Função para tela de calendário
@@ -79,11 +73,9 @@ def tela_calendario():
 
         try:
             response = supabase.table("api.calendario").upsert(atividade_data).execute()
-            print(f"✅ Atividade registrada: {response}")
             st.success("Atividade registrada com sucesso!")
         except Exception as e:
-            print(f"❌ Erro ao registrar atividade: {e}")
-            st.error("Erro ao registrar atividade. Verifique os logs.")
+            st.error(f"❌ Erro ao registrar atividade: {e}")
 
 # ==============================
 # 📌 Função para registro de treino
@@ -109,11 +101,9 @@ def tela_registro_treino():
 
         try:
             response = supabase.table("api.registro_treino").insert(treino_data).execute()
-            print(f"✅ Treino registrado: {response}")
             st.success("Treino registrado com sucesso!")
         except Exception as e:
-            print(f"❌ Erro ao registrar treino: {e}")
-            st.error("Erro ao registrar treino. Verifique os logs.")
+            st.error(f"❌ Erro ao registrar treino: {e}")
 
 # ==============================
 # 📌 Navegação entre telas
