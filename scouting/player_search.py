@@ -15,7 +15,7 @@ st.title("📊 Análise de Jogadores")
 # Carregar dados do Supabase com as colunas selecionadas
 @st.cache_data
 def carregar_dados():
-    response = supabase.table("footdataset").select("fullname, age, position, league, season, country").execute()
+    response = supabase.table("footdataset").select("fullname, age, position, league, Current Club, season, nationality, country").execute()
     return pd.DataFrame(response.data)
 
 df = carregar_dados()
@@ -36,6 +36,10 @@ posicao_filtro = st.sidebar.multiselect("Posição", posicoes, default=posicoes)
 # Filtrar por liga
 ligas = df["league"].unique().tolist()
 liga_filtro = st.sidebar.multiselect("Liga", ligas, default=ligas)
+
+# Filtrar por posição
+posicoes = df["Current Club"].unique().tolist()
+posicao_filtro = st.sidebar.multiselect("Posição", posicoes, default=posicoes)
 
 # Filtrar por nacionalidade
 nacionalidades = df["nationality"].unique().tolist()
