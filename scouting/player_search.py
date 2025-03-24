@@ -15,7 +15,6 @@ col1, col2 = st.columns(2)
 with col1:
     nome = st.text_input("Nome do Jogador")
     equipe = st.selectbox("Equipe", [""] + sorted(dados["player.team.name"].unique().tolist()))
-    pais = st.selectbox("País", [""] + sorted(dados["player.country.name"].unique().tolist()))
     pe_preferido = st.selectbox("Pé Preferido", ["", "Left", "Right"])
     
 with col2:
