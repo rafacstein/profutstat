@@ -1,101 +1,112 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 
-# Função para carregar os dados com cache
-@st.cache_data
-def carregar_dados():
-    sheet_id = st.secrets["google_sheets"]["sheet_id"]
-    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-    return pd.read_csv(sheet_url)
+# Função para tratar valores nulos
+def tratar_valor(valor):
+    return valor if pd.notna(valor) else "Não disponível"
 
-# Carregar dados
-dados = carregar_dados()
+# Função para criar o radar de atributos
+def radar_atributos(jogador, dados):
+    atributos = ["tackles", "interceptions", "clearances", "duelsWon"]
+    labels = ["Tackles", "Interceptações", "Rebatidas", "Duelos Ganhos"]
+
+    # Normalizar os valores entre 0 e 100 para o radar
+    max_valores = dados[atributos].max()
+    min_valores = dados[atributos].min()
+
+    valores_jogador = [
+        (jogador[atributo] - min_valores[atributo]) / (max_valores[atributo] - min_valores[atributo]) * 100
+        if max_valores[atributo] != min_valores[atributo] else 50
+        for atributo in atributos
+    ]
+
+    # Configuração do gráfico
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(
+        r=valores_jogador,
+        theta=labels,
+        fill='toself',
+        name=jogador['player.name']
+    ))
+
+    fig.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        showlegend=False,
+        title=f"Radar de Atributos - {jogador['player.name']}"
+    )
+
+    st.plotly_chart(fig)
+
+# Pegando o Sheet ID do arquivo de secrets
+sheet_id = st.secrets["google_sheets"]["sheet_id"]
+sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 
 # Título e instruções
 st.title("Análise de Jogadores - Futebol ⚽")
 st.write("Filtre jogadores e explore estatísticas avançadas.")
 
-# Filtros de seleção (Agora com multiselect)
+# Filtros de seleção múltipla
 col1, col2 = st.columns(2)
 with col1:
     nome = st.text_input("Nome do Jogador")
-    
-    # Filtro para equipe com multiselect
-    equipe = st.multiselect("Equipe", [""] + sorted(dados["player.team.name"].dropna().unique().tolist()))
-    
-    # Filtro para pé preferido com multiselect
-    pe_preferido = st.multiselect("Pé Preferido", ["", "Left", "Right"])
-    
+    equipes = st.multiselect("Equipe", [])
+    pes_preferidos = st.multiselect("Pé Preferido", ["Left", "Right"])
+
 with col2:
-    # Filtro para posição com multiselect
-    posicao = st.multiselect("Posição", [""] + sorted(dados["player.position"].dropna().unique().tolist()))
-    
-    # Filtro para campeonato com multiselect
-    campeonato = st.multiselect("Campeonato", [""] + sorted(dados["campeonato"].dropna().unique().tolist()))
-    
-    # Filtro para altura mínima e máxima
+    posicoes = st.multiselect("Posição", [])
+    campeonatos = st.multiselect("Campeonato", [])
     altura_min = st.slider("Altura mínima (cm)", 150, 210, 170)
     altura_max = st.slider("Altura máxima (cm)", 150, 210, 190)
 
-# Aplicação dos filtros
-filtros = (
-    (dados["player.name"].str.contains(nome, case=False)) &
-    (dados["player.team.name"].isin(equipe) if equipe else True) &
-    (dados["player.preferredFoot"].isin(pe_preferido) if pe_preferido else True) &
-    (dados["player.position"].isin(posicao) if posicao else True) &
-    (dados["campeonato"].isin(campeonato) if campeonato else True) &
-    (dados["player.height"] >= altura_min) & 
-    (dados["player.height"] <= altura_max)
-)
+# Carregamento e filtragem de dados somente ao clicar no botão
+dados_filtrados = pd.DataFrame()  # Inicialmente vazio
 
-dados_filtrados = dados[filtros]
+if st.button("Aplicar Filtros"):
+    dados = pd.read_csv(sheet_url)
+    dados = dados[dados["minutesPlayed"] > 0]  # Filtra jogadores com minutos jogados
 
-st.write(f"Jogadores encontrados: {len(dados_filtrados)}")
+    # Atualiza opções de filtros após carregar os dados
+    equipes = st.multiselect("Equipe", sorted(dados["player.team.name"].dropna().unique()), equipes)
+    posicoes = st.multiselect("Posição", sorted(dados["player.position"].dropna().unique()), posicoes)
+    campeonatos = st.multiselect("Campeonato", sorted(dados["campeonato"].dropna().unique()), campeonatos)
 
-# Função para tratar valores ausentes e exibir texto padrão
-def tratar_valor(valor, texto_padrao="Não disponível"):
-    if pd.isna(valor):
-        return texto_padrao
-    return valor
+    # Aplicação dos filtros
+    filtros = (
+        (dados["player.name"].str.contains(nome, case=False, na=False)) &
+        (dados["player.team.name"].isin(equipes) if equipes else True) &
+        (dados["player.preferredFoot"].isin(pes_preferidos) if pes_preferidos else True) &
+        (dados["player.position"].isin(posicoes) if posicoes else True) &
+        (dados["campeonato"].isin(campeonatos) if campeonatos else True) &
+        (dados["player.height"] >= altura_min) & 
+        (dados["player.height"] <= altura_max)
+    )
 
-# Função para tratar data (Contrato até)
-def tratar_data(valor):
-    if pd.isna(valor):
-        return "Não disponível"
-    try:
-        return pd.to_datetime(valor, unit='s').strftime('%d/%m/%Y')
-    except Exception:
-        return "Erro ao formatar data"
+    dados_filtrados = dados[filtros]
+    st.write(f"Jogadores encontrados: {len(dados_filtrados)}")
 
-# Exibição dos cards
-for _, jogador in dados_filtrados.iterrows():
-    with st.expander(f"{tratar_valor(jogador['player.name'], 'Nome não disponível')} ({tratar_valor(jogador['player.team.name'], 'Equipe não disponível')})"):
-        st.write(f"Posição: {tratar_valor(jogador['player.position'])}")
-        st.write(f"Altura: {tratar_valor(jogador['player.height'])} cm | Pé Preferido: {tratar_valor(jogador['player.preferredFoot'])}")
-        st.write(f"País: {tratar_valor(jogador['player.country.name'])}")
-        
-        # Verificar e calcular a idade com data de nascimento
-        if pd.notna(jogador["player.dateOfBirthTimestamp"]):
-            try:
-                nascimento = pd.to_datetime(jogador["player.dateOfBirthTimestamp"], errors='coerce')
-                if pd.notna(nascimento):
-                    idade = int((pd.Timestamp.now().timestamp() - nascimento.timestamp()) // (365.25 * 24 * 3600))
-                    st.write(f"Idade: {idade} anos")
-                else:
-                    st.write("Idade: Não disponível")
-            except Exception:
-                st.write("Idade: Erro ao calcular a idade")
-        else:
-            st.write("Idade: Não disponível")
-        
-        st.write(f"Campeonato: {tratar_valor(jogador['campeonato'])}")
-        
-        # Estatísticas avançadas simuladas
-        st.subheader("Estatísticas Avançadas")
-        estatisticas = {
-            "Minutos Jogados": tratar_valor(jogador["minutesPlayed"]),
-            "Valor de Mercado": tratar_valor(jogador["player.proposedMarketValue"]),
-            "Contrato Até": tratar_data(jogador["player.contractUntilTimestamp"]),
-            "Número da Camisa": tratar_valor(jogador["player.shirtNumber"])
-        }
-        st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
+    # Exibição dos jogadores filtrados com opção de radar de atributos
+    for _, jogador in dados_filtrados.iterrows():
+        with st.expander(f"{jogador['player.name']} ({tratar_valor(jogador['player.team.name'])})"):
+            st.write(f"Posição: {tratar_valor(jogador['player.position'])}")
+            st.write(f"Altura: {tratar_valor(jogador['player.height'])} cm | Pé Preferido: {tratar_valor(jogador['player.preferredFoot'])}")
+            st.write(f"País: {tratar_valor(jogador['player.country.name'])} | Idade: {tratar_valor(int((pd.Timestamp.now().timestamp() - jogador['player.dateOfBirthTimestamp']) // (365.25 * 24 * 3600)))} anos")
+            st.write(f"Campeonato: {tratar_valor(jogador['campeonato'])}")
+
+            # Estatísticas Avançadas
+            st.subheader("Estatísticas Avançadas")
+            estatisticas = {
+                "Minutos Jogados": tratar_valor(jogador["minutesPlayed"]),
+                "Valor de Mercado": tratar_valor(jogador["player.proposedMarketValue"]),
+                "Contrato Até": tratar_valor(pd.to_datetime(jogador["player.contractUntilTimestamp"], unit='s').strftime('%d/%m/%Y') if pd.notna(jogador["player.contractUntilTimestamp"]) else "Não disponível"),
+                "Número da Camisa": tratar_valor(jogador["player.shirtNumber"])
+            }
+            st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
+
+            # Botão para exibir radar de atributos
+            if st.button(f"Mostrar Radar de Atributos - {jogador['player.name']}", key=f"radar_{jogador['player.name']}"):
+                radar_atributos(jogador, dados)
+
+else:
+    st.warning("Aplique os filtros para carregar os jogadores!")
+
