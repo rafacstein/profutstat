@@ -1,10 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-# Pegando o Sheet ID do arquivo de secrets
-sheet_id = st.secrets["google_sheets"]["sheet_id"]
-sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
-dados = pd.read_csv(sheet_url)
+# Função para carregar os dados com cache
+@st.cache_data
+def carregar_dados():
+    sheet_id = st.secrets["google_sheets"]["sheet_id"]
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+    return pd.read_csv(sheet_url)
+
+# Carregar dados
+dados = carregar_dados()
 
 # Título e instruções
 st.title("Análise de Jogadores - Futebol ⚽")
