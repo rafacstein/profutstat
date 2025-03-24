@@ -53,6 +53,15 @@ def tratar_valor(valor, texto_padrao="Não disponível"):
         return texto_padrao
     return valor
 
+# Função para tratar data (Contrato até)
+def tratar_data(valor):
+    if pd.isna(valor):
+        return "Não disponível"
+    try:
+        return pd.to_datetime(valor, unit='s').strftime('%d/%m/%Y')
+    except Exception:
+        return "Erro ao formatar data"
+
 # Exibição dos cards
 for _, jogador in dados_filtrados.iterrows():
     with st.expander(f"{tratar_valor(jogador['player.name'], 'Nome não disponível')} ({tratar_valor(jogador['player.team.name'], 'Equipe não disponível')})"):
@@ -81,7 +90,7 @@ for _, jogador in dados_filtrados.iterrows():
         estatisticas = {
             "Minutos Jogados": tratar_valor(jogador["minutesPlayed"]),
             "Valor de Mercado": tratar_valor(jogador["player.proposedMarketValue"]),
-            "Contrato Até": tratar_valor(pd.to_datetime(jogador["player.contractUntilTimestamp"], unit='s').strftime('%d/%m/%Y') if pd.notna(jogador["player.contractUntilTimestamp"]) else "Não disponível"),
+            "Contrato Até": tratar_data(jogador["player.contractUntilTimestamp"]),
             "Número da Camisa": tratar_valor(jogador["player.shirtNumber"])
         }
         st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
