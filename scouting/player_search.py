@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# URL pública do Google Sheets (substitua pelo seu link)
-sheet_id = "SEU_SHEET_ID"
+# Pegando o Sheet ID do arquivo de secrets
+sheet_id = st.secrets["google_sheets"]["sheet_id"]
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 dados = pd.read_csv(sheet_url)
 
