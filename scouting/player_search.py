@@ -47,20 +47,41 @@ dados_filtrados = dados[filtros]
 
 st.write(f"Jogadores encontrados: {len(dados_filtrados)}")
 
+# Função para tratar valores ausentes e exibir texto padrão
+def tratar_valor(valor, texto_padrao="Não disponível"):
+    if pd.isna(valor):
+        return texto_padrao
+    return valor
+
 # Exibição dos cards
 for _, jogador in dados_filtrados.iterrows():
-    with st.expander(f"{jogador['player.name']} ({jogador['player.team.name']})"):
-        st.write(f"Posição: {jogador['player.position']}")
-        st.write(f"Altura: {jogador['player.height']} cm | Pé Preferido: {jogador['player.preferredFoot']}")
-        st.write(f"País: {jogador['player.country.name']} | Idade: {int((pd.Timestamp.now().timestamp() - jogador['player.dateOfBirthTimestamp']) // (365.25 * 24 * 3600))} anos")
-        st.write(f"Campeonato: {jogador['campeonato']}")
+    with st.expander(f"{tratar_valor(jogador['player.name'], 'Nome não disponível')} ({tratar_valor(jogador['player.team.name'], 'Equipe não disponível')})"):
+        st.write(f"Posição: {tratar_valor(jogador['player.position'])}")
+        st.write(f"Altura: {tratar_valor(jogador['player.height'])} cm | Pé Preferido: {tratar_valor(jogador['player.preferredFoot'])}")
+        st.write(f"País: {tratar_valor(jogador['player.country.name'])}")
+        
+        # Verificar e calcular a idade com data de nascimento
+        if pd.notna(jogador["player.dateOfBirthTimestamp"]):
+            try:
+                nascimento = pd.to_datetime(jogador["player.dateOfBirthTimestamp"], errors='coerce')
+                if pd.notna(nascimento):
+                    idade = int((pd.Timestamp.now().timestamp() - nascimento.timestamp()) // (365.25 * 24 * 3600))
+                    st.write(f"Idade: {idade} anos")
+                else:
+                    st.write("Idade: Não disponível")
+            except Exception:
+                st.write("Idade: Erro ao calcular a idade")
+        else:
+            st.write("Idade: Não disponível")
+        
+        st.write(f"Campeonato: {tratar_valor(jogador['campeonato'])}")
         
         # Estatísticas avançadas simuladas
         st.subheader("Estatísticas Avançadas")
         estatisticas = {
-            "Minutos Jogados": jogador["minutesPlayed"],
-            "Valor de Mercado": jogador["player.proposedMarketValue"],
-            "Contrato Até": pd.to_datetime(jogador["player.contractUntilTimestamp"], unit='s').strftime('%d/%m/%Y'),
-            "Número da Camisa": jogador["player.shirtNumber"]
+            "Minutos Jogados": tratar_valor(jogador["minutesPlayed"]),
+            "Valor de Mercado": tratar_valor(jogador["player.proposedMarketValue"]),
+            "Contrato Até": tratar_valor(pd.to_datetime(jogador["player.contractUntilTimestamp"], unit='s').strftime('%d/%m/%Y') if pd.notna(jogador["player.contractUntilTimestamp"]) else "Não disponível"),
+            "Número da Camisa": tratar_valor(jogador["player.shirtNumber"])
         }
         st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
