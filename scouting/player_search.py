@@ -1,62 +1,60 @@
 import streamlit as st
-from supabase import create_client, Client
 import pandas as pd
 
-# Carregar credenciais do secrets
-SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
+# URL pública do Google Sheets (substitua pelo seu link)
+sheet_id = "SEU_SHEET_ID"
+sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
+dados = pd.read_csv(sheet_url)
 
-# Criar conexão com Supabase
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# Título e instruções
+st.title("Análise de Jogadores - Futebol ⚽")
+st.write("Filtre jogadores e explore estatísticas avançadas.")
 
-# Título do app
-st.title("📊 Análise de Jogadores")
+# Filtros de seleção
+col1, col2 = st.columns(2)
+with col1:
+    nome = st.text_input("Nome do Jogador")
+    equipe = st.selectbox("Equipe", [""] + sorted(dados["player.team.name"].unique().tolist()))
+    pais = st.selectbox("País", [""] + sorted(dados["player.country.name"].unique().tolist()))
+    pe_preferido = st.selectbox("Pé Preferido", ["", "Left", "Right"])
+    
+with col2:
+    posicao = st.selectbox("Posição", [""] + sorted(dados["player.position"].unique().tolist()))
+    campeonato = st.selectbox("Campeonato", [""] + sorted(dados["campeonato"].unique().tolist()))
+    altura_min = st.slider("Altura mínima (cm)", 150, 210, 170)
+    altura_max = st.slider("Altura máxima (cm)", 150, 210, 190)
 
-# Carregar dados do Supabase com as colunas selecionadas
-@st.cache_data
-def carregar_dados():
-    response = supabase.table("footdataset").select("fullname, age, position, league, Current Club, season, nationality, country").execute()
-    return pd.DataFrame(response.data)
+# Aplicação dos filtros
+filtros = (
+    (dados["player.name"].str.contains(nome, case=False)) &
+    (dados["player.team.name"] == equipe if equipe else True) &
+    (dados["player.country.name"] == pais if pais else True) &
+    (dados["player.preferredFoot"] == pe_preferido if pe_preferido else True) &
+    (dados["player.position"] == posicao if posicao else True) &
+    (dados["campeonato"] == campeonato if campeonato else True) &
+    (dados["player.height"] >= altura_min) & 
+    (dados["player.height"] <= altura_max)
+)
 
-df = carregar_dados()
+dados_filtrados = dados[filtros]
 
-# Sidebar para filtros
-st.sidebar.header("🎯 Filtros")
+st.write(f"Jogadores encontrados: {len(dados_filtrados)}")
 
-# Filtrar por nome
-nome_filtro = st.sidebar.text_input("Nome do Jogador")
+# Exibição dos cards
+for _, jogador in dados_filtrados.iterrows():
+    with st.expander(f"{jogador['player.name']} ({jogador['player.team.name']})"):
+        st.write(f"Posição: {jogador['player.position']}")
+        st.write(f"Altura: {jogador['player.height']} cm | Pé Preferido: {jogador['player.preferredFoot']}")
+        st.write(f"País: {jogador['player.country.name']} | Idade: {int((pd.Timestamp.now().timestamp() - jogador['player.dateOfBirthTimestamp']) // (365.25 * 24 * 3600))} anos")
+        st.write(f"Campeonato: {jogador['campeonato']}")
+        
+        # Estatísticas avançadas simuladas
+        st.subheader("Estatísticas Avançadas")
+        estatisticas = {
+            "Minutos Jogados": jogador["minutesPlayed"],
+            "Valor de Mercado": jogador["player.proposedMarketValue"],
+            "Contrato Até": pd.to_datetime(jogador["player.contractUntilTimestamp"], unit='s').strftime('%d/%m/%Y'),
+            "Número da Camisa": jogador["player.shirtNumber"]
+        }
+        st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
 
-# Filtrar por idade
-idade_min, idade_max = st.sidebar.slider("Idade", int(df["age"].min()), int(df["age"].max()), (int(df["age"].min()), int(df["age"].max())))
-
-# Filtrar por posição
-posicoes = df["position"].unique().tolist()
-posicao_filtro = st.sidebar.multiselect("Posição", posicoes, default=posicoes)
-
-# Filtrar por liga
-ligas = df["league"].unique().tolist()
-liga_filtro = st.sidebar.multiselect("Liga", ligas, default=ligas)
-
-# Filtrar por posição
-posicoes = df["Current Club"].unique().tolist()
-posicao_filtro = st.sidebar.multiselect("Posição", posicoes, default=posicoes)
-
-# Filtrar por nacionalidade
-nacionalidades = df["nationality"].unique().tolist()
-nacionalidade_filtro = st.sidebar.multiselect("Nacionalidade", nacionalidades, default=nacionalidades)
-
-# Aplicar filtros
-df_filtrado = df[
-    (df["idade"] >= idade_min) & (df["idade"] <= idade_max) &
-    (df["posicao"].isin(posicao_filtro)) &
-    (df["liga"].isin(liga_filtro)) &
-    (df["nacionalidade"].isin(nacionalidade_filtro))
-]
-
-# Filtrar por nome se algo for digitado
-if nome_filtro:
-    df_filtrado = df_filtrado[df_filtrado["nome"].str.contains(nome_filtro, case=False, na=False)]
-
-# Exibir tabela
-st.write(f"🔍 **Total de jogadores encontrados:** {len(df_filtrado)}")
-st.dataframe(df_filtrado)
