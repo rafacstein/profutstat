@@ -3,11 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # Pegando o Sheet ID do arquivo de secrets
-sheet_id = st.secrets['google_sheets']['sheet_id']import streamlit as st
-import pandas as pd
-import plotly.graph_objects as go
-
-# Pegando o Sheet ID do arquivo de secrets
 sheet_id = st.secrets['google_sheets']['sheet_id']
 sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
 dados = pd.read_csv(sheet_url)
