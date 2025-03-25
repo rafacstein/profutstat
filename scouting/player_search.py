@@ -71,7 +71,7 @@ for _, jogador in dados_filtrados.iterrows():
         estatisticas = {
             'Minutos Jogados': tratar_valor(jogador['minutesPlayed']),
             'Valor de Mercado': tratar_valor(jogador['player.proposedMarketValue']),
-            'Contrato Até': tratar_valor(pd.to_datetime(jogador['player.contractUntilTimestamp'], unit='s', errors='coerce').strftime('%d/%m/%Y') if pd.notna(jogador['player.contractUntilTimestamp']) else 'Não disponível'),
+            'Contrato Até': tratar_valor(jogador['player.contractUntilTimestamp']),
             'Número da Camisa': tratar_valor(jogador['player.shirtNumber'])
         }
         st.table(pd.DataFrame(estatisticas.items(), columns=['Estatística', 'Valor']))
