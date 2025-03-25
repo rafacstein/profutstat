@@ -52,11 +52,11 @@ st.write(f'Jogadores encontrados: {len(dados_filtrados)}')
 
 # Função para gerar radar de atributos gerais
 def gerar_radar_geral(jogador):
-    categorias = ['Minutos Jogados', 'Valor de Mercado', 'Altura', 'Número da Camisa']
+    categorias = ['Minutos Jogados', 'Partidas disputadas', 'Nota', 'Número da Camisa']
     valores = [
         tratar_valor(jogador, 'minutesPlayed'),
-        tratar_valor(jogador, 'player.proposedMarketValue'),
-        tratar_valor(jogador, 'player.height'),
+        tratar_valor(jogador, 'appearances'),
+        tratar_valor(jogador, 'rating'),
         tratar_valor(jogador, 'player.shirtNumber')
     ]
 
@@ -68,20 +68,20 @@ def gerar_radar_geral(jogador):
 # Função para gerar radar de atributos ofensivos e defensivos
 def gerar_radar_atributos(jogador, tipo='ofensivo'):
     if tipo == 'ofensivo':
-        categorias = ['Gols', 'Assistências', 'Finalizações', 'Passes Chave']
+        categorias = ['Participações em Gols', '% de passes corretos', '% de Dribles corretos', 'Passes certos no último terço']
         valores = [
-            tratar_valor(jogador, 'player.goals'),
-            tratar_valor(jogador, 'player.assists'),
-            tratar_valor(jogador, 'player.shots'),
-            tratar_valor(jogador, 'player.keyPasses')
+            tratar_valor(jogador, 'goalsAssistsSum'),
+            tratar_valor(jogador, 'accuratePassesPercentage'),
+            tratar_valor(jogador, 'successfulDribblesPercentage'),
+            tratar_valor(jogador, 'accurateFinalThirdPasses')
         ]
     else:  # Radar defensivo
-        categorias = ['Desarmes', 'Interceptações', 'Cortes', 'Duelos Vencidos']
+        categorias = ['Duelos aéreos ganhos', 'Duelos ganhos no chão', 'Recuperação de bolas', 'Dribles sofridos']
         valores = [
-            tratar_valor(jogador, 'player.tackles'),
-            tratar_valor(jogador, 'player.interceptions'),
-            tratar_valor(jogador, 'player.clearances'),
-            tratar_valor(jogador, 'player.duelsWon')
+            tratar_valor(jogador, 'aerialDuelsWonPercentage'),
+            tratar_valor(jogador, 'totalDuelsWonPercentage'),
+            tratar_valor(jogador, 'BallRecovery'),
+            tratar_valor(jogador, 'dribbledPast')
         ]
 
     fig = go.Figure()
