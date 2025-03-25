@@ -71,7 +71,7 @@ for _, jogador in dados_filtrados.iterrows():
         st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
         st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
         st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {tratar_valor(jogador, 'player.dateOfBirthTimestamp')} anos")
-        st.write(f"Campeonato: {tratar_valor(jogador, 'campeonato')}")
+        st.write(f"Contrato: {tratar_valor(jogador, 'player.contractUntilTimestamp')}")
 
         # Estatísticas avançadas
         st.subheader('Estatísticas Avançadas')
