@@ -13,15 +13,22 @@ dados = dados[dados['minutesPlayed'] > 0]
 st.title('Análise de Jogadores - Futebol ⚽')
 st.write('Filtre jogadores e explore estatísticas avançadas.')
 
-# Tratamento de valores ausentes
-def tratar_valor(valor):
-    return valor if pd.notna(valor) else 'Não disponível'
+# Tratamento de valores ausentes ou chaves inexistentes
+def tratar_valor(dicionario, chave):
+    try:
+        valor = dicionario.get(chave, 'Não disponível')
+        return valor if pd.notna(valor) else 'Não disponível'
+    except Exception:
+        return 'Não disponível'
 
-# Função para calcular idade
+# Função para calcular idade com tratamento de erros
 def calcular_idade(timestamp):
-    if pd.notna(timestamp):
-        idade = int((pd.Timestamp.now().timestamp() - timestamp) // (365.25 * 24 * 3600))
-        return idade
+    try:
+        if pd.notna(timestamp):
+            idade = int((pd.Timestamp.now().timestamp() - timestamp) // (365.25 * 24 * 3600))
+            return idade
+    except Exception:
+        pass
     return 'Não disponível'
 
 # Opções de filtros
@@ -47,32 +54,32 @@ st.write(f'Jogadores encontrados: {len(dados_filtrados)}')
 def gerar_radar(jogador):
     categorias = ['Minutos Jogados', 'Valor de Mercado', 'Altura', 'Número da Camisa']
     valores = [
-        tratar_valor(jogador['minutesPlayed']),
-        tratar_valor(jogador['player.proposedMarketValue']),
-        tratar_valor(jogador['player.height']),
-        tratar_valor(jogador['player.shirtNumber'])
+        tratar_valor(jogador, 'minutesPlayed'),
+        tratar_valor(jogador, 'player.proposedMarketValue'),
+        tratar_valor(jogador, 'player.height'),
+        tratar_valor(jogador, 'player.shirtNumber')
     ]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=jogador['player.name']))
+    fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=tratar_valor(jogador, 'player.name')))
     fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False)
     st.plotly_chart(fig)
 
 # Exibição dos cards
 for _, jogador in dados_filtrados.iterrows():
-    with st.expander(f"{tratar_valor(jogador['player.name'])} ({tratar_valor(jogador['player.team.name'])})"):
-        st.write(f"Posição: {tratar_valor(jogador['player.position'])}")
-        st.write(f"Altura: {tratar_valor(jogador['player.height'])} cm | Pé Preferido: {tratar_valor(jogador['player.preferredFoot'])}")
-        st.write(f"País: {tratar_valor(jogador['player.country.name'])} | Idade: {tratar_valor(calcular_idade(jogador['player.dateOfBirthTimestamp']))} anos")
-        st.write(f"Campeonato: {tratar_valor(jogador['campeonato'])}")
+    with st.expander(f"{tratar_valor(jogador, 'player.name')} ({tratar_valor(jogador, 'player.team.name')})"):
+        st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
+        st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
+        st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {tratar_valor(calcular_idade(jogador.get('player.dateOfBirthTimestamp', None)))} anos")
+        st.write(f"Campeonato: {tratar_valor(jogador, 'campeonato')}")
 
         # Estatísticas avançadas
         st.subheader('Estatísticas Avançadas')
         estatisticas = {
-            'Minutos Jogados': tratar_valor(jogador['minutesPlayed']),
-            'Valor de Mercado': tratar_valor(jogador['player.proposedMarketValue']),
-            'Contrato Até': tratar_valor(jogador['player.contractUntilTimestamp']),
-            'Número da Camisa': tratar_valor(jogador['player.shirtNumber'])
+            'Minutos Jogados': tratar_valor(jogador, 'minutesPlayed'),
+            'Valor de Mercado': tratar_valor(jogador, 'player.proposedMarketValue'),
+            'Contrato Até': tratar_valor(jogador, 'player.contractUntilTimestamp'),
+            'Número da Camisa': tratar_valor(jogador, 'player.shirtNumber')
         }
         st.table(pd.DataFrame(estatisticas.items(), columns=['Estatística', 'Valor']))
 
