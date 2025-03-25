@@ -7,54 +7,57 @@ sheet_id = st.secrets["google_sheets"]["sheet_id"]
 sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv"
 dados = pd.read_csv(sheet_url)
 
-# Filtrar apenas atletas com minutos jogados maior que zero
-dados = dados[dados["minutesPlayed"] > 0]
-
-# Função para tratar valores em branco
-def tratar_valor(valor):
-    return valor if pd.notna(valor) else "Não disponível"
+# Remover linhas com minutos jogados iguais a zero
+dados = dados[dados["minutesPlayed"] > 0].copy()
 
 # Título e instruções
 st.title("Análise de Jogadores - Futebol ⚽")
 st.write("Filtre jogadores e explore estatísticas avançadas.")
 
-# Filtros de seleção múltipla
+# Função para tratar valores faltantes
+def tratar_valor(valor):
+    return valor if pd.notna(valor) else "Não disponível"
+
+# Função para calcular idade
+def calcular_idade(timestamp):
+    try:
+        idade = int((pd.Timestamp.now().timestamp() - timestamp) // (365.25 * 24 * 3600))
+        return idade
+    except:
+        return "Não disponível"
+
+# Filtros de seleção
 col1, col2 = st.columns(2)
 with col1:
     nome = st.text_input("Nome do Jogador")
-    equipes = sorted([e for e in dados["player.team.name"].unique() if pd.notna(e)])
-    equipe = st.multiselect("Equipe", [""] + equipes)
-    pes = ["Left", "Right"]
-    pe_preferido = st.multiselect("Pé Preferido", [""] + pes)
+    equipes = st.multiselect("Equipe", sorted(dados["player.team.name"].dropna().unique().tolist()))
+    pes_preferidos = st.multiselect("Pé Preferido", ["Left", "Right"])
 
 with col2:
-    posicoes = sorted([p for p in dados["player.position"].unique() if pd.notna(p)])
-    posicao = st.multiselect("Posição", [""] + posicoes)
-    campeonatos = sorted([c for c in dados["campeonato"].unique() if pd.notna(c)])
-    campeonato = st.multiselect("Campeonato", [""] + campeonatos)
+    posicoes = st.multiselect("Posição", sorted(dados["player.position"].dropna().unique().tolist()))
+    campeonatos = st.multiselect("Campeonato", sorted(dados["campeonato"].dropna().unique().tolist()))
     altura_min, altura_max = st.slider("Altura (cm)", 150, 210, (170, 190))
 
 # Aplicação dos filtros
 filtros = (
     (dados["player.name"].str.contains(nome, case=False, na=False)) &
-    (dados["player.team.name"].isin(equipe) if equipe else True) &
-    (dados["player.preferredFoot"].isin(pe_preferido) if pe_preferido else True) &
-    (dados["player.position"].isin(posicao) if posicao else True) &
-    (dados["campeonato"].isin(campeonato) if campeonato else True) &
-    (dados["player.height"] >= altura_min) & 
+    (dados["player.team.name"].isin(equipes) if equipes else True) &
+    (dados["player.preferredFoot"].isin(pes_preferidos) if pes_preferidos else True) &
+    (dados["player.position"].isin(posicoes) if posicoes else True) &
+    (dados["campeonato"].isin(campeonatos) if campeonatos else True) &
+    (dados["player.height"] >= altura_min) &
     (dados["player.height"] <= altura_max)
 )
-
 dados_filtrados = dados[filtros]
 
 st.write(f"Jogadores encontrados: {len(dados_filtrados)}")
 
 # Exibição dos cards
 for _, jogador in dados_filtrados.iterrows():
-    with st.expander(f"{jogador['player.name']} ({jogador['player.team.name']})"):
+    with st.expander(f"{tratar_valor(jogador['player.name'])} ({tratar_valor(jogador['player.team.name'])})"):
         st.write(f"Posição: {tratar_valor(jogador['player.position'])}")
         st.write(f"Altura: {tratar_valor(jogador['player.height'])} cm | Pé Preferido: {tratar_valor(jogador['player.preferredFoot'])}")
-        st.write(f"País: {tratar_valor(jogador['player.country.name'])} | Idade: {tratar_valor(int((pd.Timestamp.now().timestamp() - jogador['player.dateOfBirthTimestamp']) // (365.25 * 24 * 3600)) if pd.notna(jogador['player.dateOfBirthTimestamp']) else 'Não disponível')} anos")
+        st.write(f"País: {tratar_valor(jogador['player.country.name'])} | Idade: {tratar_valor(calcular_idade(jogador['player.dateOfBirthTimestamp']))} anos")
         st.write(f"Campeonato: {tratar_valor(jogador['campeonato'])}")
 
         # Estatísticas avançadas
@@ -68,20 +71,11 @@ for _, jogador in dados_filtrados.iterrows():
         st.table(pd.DataFrame(estatisticas.items(), columns=["Estatística", "Valor"]))
 
         # Radar de atributos
-        if st.button(f"Mostrar Radar de Atributos - {jogador['player.name']}"):
-            categorias = ["Minutos Jogados", "Valor de Mercado", "Altura", "Idade"]
-            valores = [
-                jogador["minutesPlayed"] if pd.notna(jogador["minutesPlayed"]) else 0,
-                jogador["player.proposedMarketValue"] if pd.notna(jogador["player.proposedMarketValue"]) else 0,
-                jogador["player.height"] if pd.notna(jogador["player.height"]) else 0,
-                int((pd.Timestamp.now().timestamp() - jogador["player.dateOfBirthTimestamp"]) // (365.25 * 24 * 3600)) if pd.notna(jogador["player.dateOfBirthTimestamp"]) else 0
-            ]
+        st.subheader("Radar de Atributos")
+        atributos = ["minutesPlayed", "player.proposedMarketValue", "player.height"]
+        valores = [jogador[attr] if pd.notna(jogador[attr]) else 0 for attr in atributos]
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=jogador['player.name']))
-            fig.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, max(valores) + 10])),
-                showlegend=False
-            )
-            st.plotly_chart(fig)
-
+        fig = go.Figure()
+        fig.add_trace(go.Scatterpolar(r=valores, theta=atributos, fill='toself', name=tratar_valor(jogador['player.name'])))
+        fig.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, max(valores)])))
+        st.plotly_chart(fig)
