@@ -50,8 +50,8 @@ dados_filtrados = dados[filtros]
 
 st.write(f'Jogadores encontrados: {len(dados_filtrados)}')
 
-# Função para gerar radar de atributos
-def gerar_radar(jogador):
+# Função para gerar radar de atributos gerais
+def gerar_radar_geral(jogador):
     categorias = ['Minutos Jogados', 'Valor de Mercado', 'Altura', 'Número da Camisa']
     valores = [
         tratar_valor(jogador, 'minutesPlayed'),
@@ -65,12 +65,36 @@ def gerar_radar(jogador):
     fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False)
     st.plotly_chart(fig)
 
+# Função para gerar radar de atributos ofensivos e defensivos
+def gerar_radar_atributos(jogador, tipo='ofensivo'):
+    if tipo == 'ofensivo':
+        categorias = ['Gols', 'Assistências', 'Finalizações', 'Passes Chave']
+        valores = [
+            tratar_valor(jogador, 'player.goals'),
+            tratar_valor(jogador, 'player.assists'),
+            tratar_valor(jogador, 'player.shots'),
+            tratar_valor(jogador, 'player.keyPasses')
+        ]
+    else:  # Radar defensivo
+        categorias = ['Desarmes', 'Interceptações', 'Cortes', 'Duelos Vencidos']
+        valores = [
+            tratar_valor(jogador, 'player.tackles'),
+            tratar_valor(jogador, 'player.interceptions'),
+            tratar_valor(jogador, 'player.clearances'),
+            tratar_valor(jogador, 'player.duelsWon')
+        ]
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=tratar_valor(jogador, 'player.name')))
+    fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False)
+    st.plotly_chart(fig)
+
 # Exibição dos cards
 for _, jogador in dados_filtrados.iterrows():
     with st.expander(f"{tratar_valor(jogador, 'player.name')} ({tratar_valor(jogador, 'player.team.name')})"):
         st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
         st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
-        st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {tratar_valor(jogador, 'player.dateOfBirthTimestamp')} anos")
+        st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {calcular_idade(jogador.get('player.dateOfBirthTimestamp', None))} anos")
         st.write(f"Contrato: {tratar_valor(jogador, 'player.contractUntilTimestamp')}")
 
         # Estatísticas avançadas
@@ -83,6 +107,14 @@ for _, jogador in dados_filtrados.iterrows():
         }
         st.table(pd.DataFrame(estatisticas.items(), columns=['Estatística', 'Valor']))
 
-        # Radar de atributos
-        st.subheader('Radar de Atributos')
-        gerar_radar(jogador)
+        # Radar de atributos gerais
+        st.subheader('Radar de Atributos Gerais')
+        gerar_radar_geral(jogador)
+
+        # Radar de atributos ofensivos
+        st.subheader('Radar de Atributos Ofensivos')
+        gerar_radar_atributos(jogador, tipo='ofensivo')
+
+        # Radar de atributos defensivos
+        st.subheader('Radar de Atributos Defensivos')
+        gerar_radar_atributos(jogador, tipo='defensivo')
