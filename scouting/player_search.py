@@ -1,120 +1,40 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
+import math
+from utils import gerar_radar_geral, tratar_valor  # Certifique-se de que esses módulos estão disponíveis
 
-# Pegando o Sheet ID do arquivo de secrets
-sheet_id = st.secrets['google_sheets']['sheet_id']
-sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
-dados = pd.read_csv(sheet_url)
+# Carregamento eficiente dos dados
+@st.cache_data
+def carregar_dados():
+    sheet_id = st.secrets['google_sheets']['sheet_id']
+    sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
+    return pd.read_csv(sheet_url)
 
-# Filtrando apenas jogadores com minutos jogados > 0
-dados = dados[dados['minutesPlayed'] > 0]
+dados = carregar_dados()
 
-st.title('Análise de Jogadores - Futebol ⚽')
-st.write('Filtre jogadores e explore estatísticas avançadas.')
+# Filtro de busca otimizado
+nome = st.text_input('Nome do Jogador').strip().lower()
+if nome:
+    dados = dados[dados['player.name'].str.lower().str.startswith(nome)]
 
-# Tratamento de valores ausentes ou chaves inexistentes
-def tratar_valor(dicionario, chave):
-    try:
-        valor = dicionario.get(chave, 'Não disponível')
-        return valor if pd.notna(valor) else 'Não disponível'
-    except Exception:
-        return 'Não disponível'
+# Filtro de campeonato otimizado
+if 'campeonato' in dados.columns:
+    campeonato = st.selectbox('Campeonato', ['Todos'] + sorted(dados['campeonato'].dropna().unique().tolist()))
+    if campeonato != 'Todos':
+        dados = dados[dados['campeonato'] == campeonato]
 
-# Função para calcular idade com tratamento de erros
-def calcular_idade(timestamp):
-    try:
-        if pd.notna(timestamp):
-            idade = int((pd.Timestamp.now().timestamp() - timestamp) // (365.25 * 24 * 3600))
-            return idade
-    except Exception:
-        pass
-    return 'Não disponível'
+# Paginação para melhorar a performance
+jogadores_por_pagina = 10
+total_paginas = max(1, math.ceil(len(dados) / jogadores_por_pagina))
+pagina = st.number_input('Página', min_value=1, max_value=total_paginas, value=1)
 
-# Opções de filtros
-nome = st.text_input('Nome do Jogador')
-equipe = st.multiselect('Equipe', sorted(dados['player.team.name'].dropna().unique().tolist()))
-posicao = st.multiselect('Posição', sorted(dados['player.position'].dropna().unique().tolist()))
-pe_preferido = st.multiselect('Pé Preferido', sorted(dados['player.preferredFoot'].dropna().unique().tolist()))
-campeonato = st.multiselect('Campeonato', sorted(dados['campeonato'].dropna().unique().tolist()))
+dados_pagina = dados.iloc[(pagina - 1) * jogadores_por_pagina : pagina * jogadores_por_pagina]
 
-# Aplicação dos filtros
-filtros = (
-    (dados['player.name'].str.contains(nome, case=False, na=False)) &
-    (dados['player.team.name'].isin(equipe) if equipe else True) &
-    (dados['player.position'].isin(posicao) if posicao else True) &
-    (dados['player.preferredFoot'].isin(pe_preferido) if pe_preferido else True) &
-    (dados['campeonato'].isin(campeonato) if campeonato else True)
-)
-dados_filtrados = dados[filtros]
-
-st.write(f'Jogadores encontrados: {len(dados_filtrados)}')
-
-# Função para gerar radar de atributos gerais
-def gerar_radar_geral(jogador):
-    categorias = ['Minutos Jogados', 'Partidas disputadas', 'Nota', 'Número da Camisa']
-    valores = [
-        tratar_valor(jogador, 'minutesPlayed'),
-        tratar_valor(jogador, 'appearances'),
-        tratar_valor(jogador, 'rating'),
-        tratar_valor(jogador, 'player.shirtNumber')
-    ]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=tratar_valor(jogador, 'player.name')))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False)
-    st.plotly_chart(fig)
-
-# Função para gerar radar de atributos ofensivos e defensivos
-def gerar_radar_atributos(jogador, tipo='ofensivo'):
-    if tipo == 'ofensivo':
-        categorias = ['Participações em Gols', '% de passes corretos', '% de Dribles corretos', 'Passes certos no último terço']
-        valores = [
-            tratar_valor(jogador, 'goalsAssistsSum'),
-            tratar_valor(jogador, 'accuratePassesPercentage'),
-            tratar_valor(jogador, 'successfulDribblesPercentage'),
-            tratar_valor(jogador, 'accurateFinalThirdPasses')
-        ]
-    else:  # Radar defensivo
-        categorias = ['Duelos aéreos ganhos', 'Duelos ganhos no chão', 'Recuperação de bolas', 'Dribles sofridos']
-        valores = [
-            tratar_valor(jogador, 'aerialDuelsWonPercentage'),
-            tratar_valor(jogador, 'totalDuelsWonPercentage'),
-            tratar_valor(jogador, 'BallRecovery'),
-            tratar_valor(jogador, 'dribbledPast')
-        ]
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatterpolar(r=valores, theta=categorias, fill='toself', name=tratar_valor(jogador, 'player.name')))
-    fig.update_layout(polar=dict(radialaxis=dict(visible=True)), showlegend=False)
-    st.plotly_chart(fig)
-
-# Exibição dos cards
-for _, jogador in dados_filtrados.iterrows():
+# Exibição dos jogadores
+for _, jogador in dados_pagina.iterrows():
     with st.expander(f"{tratar_valor(jogador, 'player.name')} ({tratar_valor(jogador, 'player.team.name')})"):
         st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
-        st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
-        st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {calcular_idade(jogador.get('player.dateOfBirthTimestamp', None))} anos")
-        st.write(f"Contrato: {tratar_valor(jogador, 'player.contractUntilTimestamp')}")
-
-        # Estatísticas avançadas
-        st.subheader('Estatísticas Avançadas')
-        estatisticas = {
-            'Minutos Jogados': tratar_valor(jogador, 'minutesPlayed'),
-            'Valor de Mercado': tratar_valor(jogador, 'player.proposedMarketValue'),
-            'Contrato Até': tratar_valor(jogador, 'player.contractUntilTimestamp'),
-            'Número da Camisa': tratar_valor(jogador, 'player.shirtNumber')
-        }
-        st.table(pd.DataFrame(estatisticas.items(), columns=['Estatística', 'Valor']))
-
-        # Radar de atributos gerais
-        st.subheader('Radar de Atributos Gerais')
-        gerar_radar_geral(jogador)
-
-        # Radar de atributos ofensivos
-        st.subheader('Radar de Atributos Ofensivos')
-        gerar_radar_atributos(jogador, tipo='ofensivo')
-
-        # Radar de atributos defensivos
-        st.subheader('Radar de Atributos Defensivos')
-        gerar_radar_atributos(jogador, tipo='defensivo')
+        
+        # Botão para gerar radar sob demanda
+        if st.button(f"Mostrar Radar - {tratar_valor(jogador, 'player.name')}"):
+            gerar_radar_geral(jogador)
