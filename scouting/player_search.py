@@ -1,10 +1,18 @@
 import streamlit as st
+import dask.dataframe as dd
 import pandas as pd
 
 # Pegando o Sheet ID do arquivo de secrets
 sheet_id = st.secrets['google_sheets']['sheet_id']
 sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
-dados = pd.read_csv(sheet_url)
+
+# Carregamento dos dados com Dask (leitura eficiente)
+@st.cache_data
+def carregar_dados():
+    return dd.read_csv(sheet_url)
+
+# Carregar os dados com Dask
+dados = carregar_dados()
 
 # Filtrando apenas jogadores com minutos jogados > 0
 dados = dados[dados['minutesPlayed'] > 0]
@@ -32,10 +40,10 @@ def calcular_idade(timestamp):
 
 # Opções de filtros
 nome = st.text_input('Nome do Jogador')
-equipe = st.multiselect('Equipe', sorted(dados['player.team.name'].dropna().unique().tolist()))
-posicao = st.multiselect('Posição', sorted(dados['player.position'].dropna().unique().tolist()))
-pe_preferido = st.multiselect('Pé Preferido', sorted(dados['player.preferredFoot'].dropna().unique().tolist()))
-campeonato = st.multiselect('Campeonato', sorted(dados['campeonato'].dropna().unique().tolist()))
+equipe = st.multiselect('Equipe', sorted(dados['player.team.name'].dropna().unique().compute().tolist()))
+posicao = st.multiselect('Posição', sorted(dados['player.position'].dropna().unique().compute().tolist()))
+pe_preferido = st.multiselect('Pé Preferido', sorted(dados['player.preferredFoot'].dropna().unique().compute().tolist()))
+campeonato = st.multiselect('Campeonato', sorted(dados['campeonato'].dropna().unique().compute().tolist()))
 
 # Aplicação dos filtros
 filtros = (
@@ -47,7 +55,7 @@ filtros = (
 )
 dados_filtrados = dados[filtros]
 
-st.write(f'Jogadores encontrados: {len(dados_filtrados)}')
+st.write(f'Jogadores encontrados: {len(dados_filtrados.compute())}')
 
 # Função para exibir os dados ofensivos
 def mostrar_dados_ofensivos(jogador):
@@ -70,7 +78,10 @@ def mostrar_dados_defensivos(jogador):
     return pd.DataFrame(dados_defensivos.items(), columns=['Atributo', 'Valor'])
 
 # Exibição dos cards
-for _, jogador in dados_filtrados.iterrows():
+# Convertendo para pandas para exibição
+dados_filtrados_pandas = dados_filtrados.compute()
+
+for _, jogador in dados_filtrados_pandas.iterrows():
     with st.expander(f"{tratar_valor(jogador, 'player.name')} ({tratar_valor(jogador, 'player.team.name')})"):
         st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
         st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
