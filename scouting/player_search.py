@@ -1,18 +1,10 @@
-import streamlit as st
 import dask.dataframe as dd
-import pandas as pd
+import streamlit as st
 
-# Pegando o Sheet ID do arquivo de secrets
+# Carregar dados com Dask
 sheet_id = st.secrets['google_sheets']['sheet_id']
 sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
-
-# Carregamento dos dados com Dask (leitura eficiente)
-@st.cache_data
-def carregar_dados():
-    return dd.read_csv(sheet_url)
-
-# Carregar os dados com Dask
-dados = carregar_dados()
+dados = dd.read_csv(sheet_url)
 
 # Filtrando apenas jogadores com minutos jogados > 0
 dados = dados[dados['minutesPlayed'] > 0]
