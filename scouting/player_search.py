@@ -1,10 +1,21 @@
+import requests
 import dask.dataframe as dd
-import streamlit as st
+import os
 
-# Carregar dados com Dask
+# URL do Google Sheets
 sheet_id = st.secrets['google_sheets']['sheet_id']
 sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
-dados = dd.read_csv(sheet_url)
+
+# Baixando o CSV
+response = requests.get(sheet_url)
+if response.status_code == 200:
+    with open("/tmp/dados.csv", "wb") as f:
+        f.write(response.content)
+else:
+    st.error("Erro ao baixar o CSV")
+
+# Carregar com Dask
+dados = dd.read_csv("/tmp/dados.csv")
 
 # Filtrando apenas jogadores com minutos jogados > 0
 dados = dados[dados['minutesPlayed'] > 0]
