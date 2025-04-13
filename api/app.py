@@ -37,7 +37,7 @@ df = load_parquet_from_s3()
 
 @app.get("/")
 def root():
-    return {"message": "API de consulta de jogadores"}
+    return {"message": "Bem-vindo ao Serviço API ProFutStat de consulta de jogadores"}
 
 @app.get("/players")
 def get_players(
@@ -48,11 +48,6 @@ def get_players(
 
     if player_id is not None:
         filtered_df = filtered_df[filtered_df["id"] == player_id]
-
-    if team_name is not None:
-        filtered_df = filtered_df[filtered_df["player.team.name"].str.lower() == team_name.lower()]
-
-    return filtered_df.to_dict(orient="records")
 
     if team_name is not None:
         filtered_df = filtered_df[filtered_df["player.team.name"].str.lower() == team_name.lower()]
