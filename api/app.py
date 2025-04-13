@@ -50,7 +50,7 @@ def get_players(
     if player_id is not None:
         filtered_df = filtered_df[filtered_df["player.id"] == player_id]
 
-    if team_name is not None:
+    if team_id is not None:
         filtered_df = filtered_df[filtered_df["team_id"] == team_id]
 
     return filtered_df.to_dict(orient="records")
