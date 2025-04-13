@@ -41,13 +41,18 @@ def root():
 
 @app.get("/players")
 def get_players(
-    player_id: Optional[int] = Query(None, alias="id"),
+    player_id: Optional[str] = Query(None, alias="id"),
     team_name: Optional[str] = Query(None, alias="team")
 ):
     filtered_df = df.copy()
 
     if player_id is not None:
         filtered_df = filtered_df[filtered_df["id"] == player_id]
+
+    if team_name is not None:
+        filtered_df = filtered_df[filtered_df["player.team.name"].str.lower() == team_name.lower()]
+
+    return filtered_df.to_dict(orient="records")
 
     if team_name is not None:
         filtered_df = filtered_df[filtered_df["player.team.name"].str.lower() == team_name.lower()]
