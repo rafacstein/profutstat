@@ -34,7 +34,7 @@ def load_parquet_from_s3():
 
 # Carrega uma vez ao iniciar
 df = load_parquet_from_s3()
-df["id"] = df["id"].astype(str)
+df["player.id"] = df["player.id"].astype(str)
 
 @app.get("/")
 def root():
