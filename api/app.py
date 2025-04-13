@@ -48,7 +48,7 @@ def get_players(
     filtered_df = df.copy()
 
     if player_id is not None:
-        filtered_df = filtered_df[filtered_df["id"] == player_id]
+        filtered_df = filtered_df[filtered_df["player.id"] == player_id]
 
     if team_name is not None:
         filtered_df = filtered_df[filtered_df["player.team.name"].str.lower() == team_name.lower()]
