@@ -42,8 +42,8 @@ def root():
 
 @app.get("/players")
 def get_players(
-    player_id: Optional[str] = Query(None, alias="id"),
-    team_id: Optional[str] = Query(None, alias="team")
+    player_id: Optional[str] = Query(None),
+    team_id: Optional[str] = Query(None)
 ):
     filtered_df = df.copy()
 
@@ -52,5 +52,7 @@ def get_players(
 
     if team_id is not None:
         filtered_df = filtered_df[filtered_df["team_id"] == team_id]
+
+    return filtered_df.to_dict(orient="records")
 
     return filtered_df.to_dict(orient="records")
