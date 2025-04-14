@@ -60,16 +60,19 @@ def get_players(
     return filtered_df.to_dict(orient="records")
 
 # Endpoint para consulta de clubes e ligas
-@app.get("/teams")
-def get_teams(
-    league: Optional[str] = Query(None),
-    team: Optional[str] = Query(None),
+@app.get("/players")
+def get_players(
+    player_id: Optional[str] = Query(None, alias="id"),
+    team_id: Optional[str] = Query(None, alias="team")
 ):
-    filtered_df = df_teams.copy()
-    if league:
-        filtered_df = filtered_df[filtered_df["league_id"].str.contains(league, case=False, na=False)]
-    if team:
-        filtered_df = filtered_df[filtered_df["team"].str.contains(team, case=False, na=False)]
+    filtered_df = df_players.copy()
+    
+    if player_id is not None:
+        filtered_df = filtered_df[filtered_df["player.id"].astype(str) == str(player_id)]
+    
+    if team_id is not None:
+        filtered_df = filtered_df[filtered_df["team_id"].astype(str) == str(team_id)]
+    
     return filtered_df.to_dict(orient="records")
 
 # Endpoint para retornar o escudo do clube
