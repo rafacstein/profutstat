@@ -1,122 +1,105 @@
 import streamlit as st
-from supabase import create_client
-from datetime import date
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from PIL import Image
+import urllib.request
 
-# 🔹 Configuração do Supabase (pegando dos secrets no Streamlit Cloud)
-supabase_url = st.secrets["supabase"]["supabase_url"]
-supabase_key = st.secrets["supabase"]["supabase_key"]
+# Configuração inicial
+if 'dados' not in st.session_state:
+    st.session_state.dados = pd.DataFrame(columns=[
+        "Evento", "Equipe", "Jogador", "Minuto", "Coordenada_X", "Coordenada_Y"
+    ])
 
-# 🔹 Criando conexão com o Supabase
-try:
-    supabase = create_client(supabase_url, supabase_key)
-    st.success("✅ Conexão com Supabase estabelecida!")
-except Exception as e:
-    st.error(f"❌ Erro ao conectar no Supabase: {e}")
+# Carrega a imagem do campo do GitHub
+def load_field_image():
+    url = "https://raw.githubusercontent.com/rafacstein/profutstat/main/vision/campo.jpg"  # Substitua pelo seu link
+    urllib.request.urlretrieve(url, "campo.jpg")
+    return Image.open("campo.jpg")
 
-# 🔹 Pegando o id dos secrets (simulando autenticação)
-user_id = st.secrets.get("USER_ID", "anon")  # Se não houver autenticação, assume "anon"
-st.write(f"🔍 User ID: {user_id}")
+field_img = load_field_image()
+width, height = field_img.size
 
-# ==============================
-# 📌 Função para tela de atletas
-# ==============================
-def tela_registro_atletas():
-    st.title("Cadastro de Atletas")
+# Função para registrar eventos com coordenadas
+def registrar_evento(evento, equipe, jogador, minuto, coord_x, coord_y):
+    novo_evento = {
+        "Evento": evento,
+        "Equipe": equipe,
+        "Jogador": jogador,
+        "Minuto": minuto,
+        "Coordenada_X": coord_x,
+        "Coordenada_Y": coord_y
+    }
+    st.session_state.dados = pd.concat(
+        [st.session_state.dados, pd.DataFrame([novo_evento])],
+        ignore_index=True
+    )
 
-    try:
-        atletas = supabase.table("api.atletas").select("*").execute().data
-        st.write(f"📊 Atletas carregados: {len(atletas)} registros encontrados.")
-    except Exception as e:
-        st.error(f"❌ Erro ao carregar atletas: {e}")
-        atletas = []
+# Interface
+st.title("⚽ Mapeamento Tático de Ações")
 
-    nome = st.text_input("Nome")
-    idade = st.number_input("Idade", min_value=10, max_value=50, step=1)
-    posicao = st.text_input("Posição")
-    nacionalidade = st.text_input("Nacionalidade")
-    altura = st.number_input("Altura (cm)", min_value=100, max_value=220, step=1)
-    peso = st.number_input("Peso (kg)", min_value=30, max_value=120, step=1)
-    pe = st.selectbox("Pé Dominante", ["Destro", "Canhoto", "Ambidestro"])
-    observacoes = st.text_area("Observações")
+# --- Mapa Interativo ---
+st.header("Clique no campo para marcar ações")
+st.image("campo.jpg", use_column_width=True)
 
-    if st.button("Salvar Atleta"):
-        novo_atleta = {
-            "nome": nome,
-            "idade": idade,
-            "posicao": posicao,
-            "nacionalidade": nacionalidade,
-            "altura": altura,
-            "peso": peso,
-            "pe": pe,
-            "observacoes": observacoes,
-            "id": user_id  # Garantindo o id
-        }
+# Obtém coordenadas do clique
+click_coords = st.session_state.get("click_coords", None)
+if st.button("Limpar Seleção"):
+    click_coords = None
 
-        try:
-            response = supabase.table("api.atletas").insert(novo_atleta).execute()
-            st.success("Atleta cadastrado com sucesso!")
-        except Exception as e:
-            st.error(f"❌ Erro ao cadastrar atleta: {e}")
+if click_coords:
+    st.write(f"📍 Ação marcada em: X={click_coords[0]:.1f}, Y={click_coords[1]:.1f}")
 
-# ==============================
-# 📌 Função para tela de calendário
-# ==============================
-def tela_calendario():
-    st.title("Registro de Calendário")
+# --- Controles ---
+col1, col2 = st.columns(2)
+with col1:
+    evento = st.selectbox("Tipo de Ação:", [
+        "Passe Certo", "Passe Errado", "Cruzamento", 
+        "Finalização", "Desarme", "Falta"
+    ])
+    equipe = st.radio("Equipe:", ["Time A", "Time B"])
 
-    data_selecionada = st.date_input("Data da Atividade", value=date.today())
-    atividade = st.text_area("Descrição da Atividade")
+with col2:
+    jogador = st.text_input("Jogador:", "")
+    minuto = st.number_input("Minuto:", 0, 120)
 
-    if st.button("Salvar Atividade"):
-        atividade_data = {
-            "data": str(data_selecionada),
-            "atividade": atividade,
-            "id": user_id  # Garantindo a autenticação do usuário
-        }
+if click_coords and st.button("Registrar Ação"):
+    registrar_evento(evento, equipe, jogador, minuto, click_coords[0], click_coords[1])
+    st.success("Ação registrada!")
 
-        try:
-            response = supabase.table("api.calendario").upsert(atividade_data).execute()
-            st.success("Atividade registrada com sucesso!")
-        except Exception as e:
-            st.error(f"❌ Erro ao registrar atividade: {e}")
+# --- Visualizações ---
+st.header("Visualização de Dados")
 
-# ==============================
-# 📌 Função para registro de treino
-# ==============================
-def tela_registro_treino():
-    st.title("Registro de Treino")
+# Heatmap
+if not st.session_state.dados.empty:
+    fig = px.density_heatmap(
+        st.session_state.dados,
+        x="Coordenada_X",
+        y="Coordenada_Y",
+        nbinsx=10,
+        nbinsy=7,
+        title="Heatmap de Ações"
+    )
+    fig.update_layout(images=[dict(
+        source=field_img,
+        xref="x",
+        yref="y",
+        x=0,
+        y=0,
+        sizex=width,
+        sizey=height,
+        sizing="stretch",
+        opacity=0.5,
+        layer="below"
+    )])
+    st.plotly_chart(fig)
 
-    data_treino = st.date_input("Data do Treino", value=date.today())
-    atleta = st.text_input("Nome do Atleta")
-    tipo_treino = st.selectbox("Tipo de Treino", ["Físico", "Tático", "Técnico", "Outro"])
-    duracao = st.number_input("Duração (min)", min_value=10, max_value=180, step=5)
-    desempenho = st.slider("Desempenho do Atleta", 0, 100, 50)
+# Tabela de dados
+st.dataframe(st.session_state.dados)
 
-    if st.button("Salvar Treino"):
-        treino_data = {
-            "data": str(data_treino),
-            "atleta": atleta,
-            "tipo_treino": tipo_treino,
-            "duracao": duracao,
-            "desempenho": desempenho,
-            "id": user_id  # Garantindo a autenticação do usuário
-        }
-
-        try:
-            response = supabase.table("api.registro_treino").insert(treino_data).execute()
-            st.success("Treino registrado com sucesso!")
-        except Exception as e:
-            st.error(f"❌ Erro ao registrar treino: {e}")
-
-# ==============================
-# 📌 Navegação entre telas
-# ==============================
-st.sidebar.title("Menu")
-pagina = st.sidebar.radio("Selecione uma página:", ["Atletas", "Calendário", "Treinos"])
-
-if pagina == "Atletas":
-    tela_registro_atletas()
-elif pagina == "Calendário":
-    tela_calendario()
-elif pagina == "Treinos":
-    tela_registro_treino()
+# Exportar
+st.download_button(
+    label="📥 Baixar Dados",
+    data=st.session_state.dados.to_csv(index=False),
+    file_name="dados_mapeamento.csv"
+)
