@@ -141,16 +141,124 @@ with poss_col_b:
 tab1, tab2, tab3, tab4 = st.tabs(["Passing", "Shooting", "Defensive", "Aerial"])
 
 with tab1:
-    # [Previous passing tab content...]
-    pass
+    # Passing buttons
+    st.subheader("Passing")
+    pass_col1, pass_col2 = st.columns(2)
+    with pass_col1:
+        st.write(f"{st.session_state.team_a}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Short ✓", key="short_pass_a_success"):
+                record_event("Pass", st.session_state.team_a, "", "Successful", "Short")
+        with col2:
+            if st.button("Short ✗", key="short_pass_a_fail"):
+                record_event("Pass", st.session_state.team_a, "", "Failed", "Short")
+        col3, col4 = st.columns(2)
+        with col3:
+            if st.button("Long ✓", key="long_pass_a_success"):
+                record_event("Pass", st.session_state.team_a, "", "Successful", "Long")
+        with col4:
+            if st.button("Long ✗", key="long_pass_a_fail"):
+                record_event("Pass", st.session_state.team_a, "", "Failed", "Long")
+    
+    with pass_col2:
+        st.write(f"{st.session_state.team_b}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Short ✓", key="short_pass_b_success"):
+                record_event("Pass", st.session_state.team_b, "", "Successful", "Short")
+        with col2:
+            if st.button("Short ✗", key="short_pass_b_fail"):
+                record_event("Pass", st.session_state.team_b, "", "Failed", "Short")
+        col3, col4 = st.columns(2)
+        with col3:
+            if st.button("Long ✓", key="long_pass_b_success"):
+                record_event("Pass", st.session_state.team_b, "", "Successful", "Long")
+        with col4:
+            if st.button("Long ✗", key="long_pass_b_fail"):
+                record_event("Pass", st.session_state.team_b, "", "Failed", "Long")
 
 with tab2:
-    # [Previous shooting tab content...]
-    pass
+    # Shooting buttons
+    st.subheader("Shooting")
+    shot_col1, shot_col2 = st.columns(2)
+    with shot_col1:
+        st.write(f"{st.session_state.team_a}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("On Target", key="shot_on_a"):
+                record_event("Shot", st.session_state.team_a, "", "On Target")
+        with col2:
+            if st.button("Off Target", key="shot_off_a"):
+                record_event("Shot", st.session_state.team_a, "", "Off Target")
+        if st.button("⚽ Goal", key="goal_a"):
+            player = st.text_input("Scorer:", key="scorer_a")
+            record_event("Goal", st.session_state.team_a, player)
+    
+    with shot_col2:
+        st.write(f"{st.session_state.team_b}")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("On Target", key="shot_on_b"):
+                record_event("Shot", st.session_state.team_b, "", "On Target")
+        with col2:
+            if st.button("Off Target", key="shot_off_b"):
+                record_event("Shot", st.session_state.team_b, "", "Off Target")
+        if st.button("⚽ Goal", key="goal_b"):
+            player = st.text_input("Scorer:", key="scorer_b")
+            record_event("Goal", st.session_state.team_b, player)
 
 with tab3:
-    # [Previous defensive tab content...]
-    pass
+    # Defensive actions
+    st.subheader("Defensive Actions")
+    def_col1, def_col2 = st.columns(2)
+    with def_col1:
+        st.write(f"{st.session_state.team_a}")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Tackle", key="tackle_a"):
+                record_event("Tackle", st.session_state.team_a)
+        with col2:
+            if st.button("Intercept", key="interception_a"):
+                record_event("Interception", st.session_state.team_a)
+        with col3:
+            if st.button("Foul", key="foul_a"):
+                record_event("Foul", st.session_state.team_a)
+        
+        # Cards for Team A
+        card_a1, card_a2 = st.columns(2)
+        with card_a1:
+            if st.button("Yellow", key="yellow_a"):
+                player = st.text_input("Player (Yellow):", key="yellow_player_a")
+                record_event("Card", st.session_state.team_a, player, "Yellow")
+        with card_a2:
+            if st.button("Red", key="red_a"):
+                player = st.text_input("Player (Red):", key="red_player_a")
+                record_event("Card", st.session_state.team_a, player, "Red")
+    
+    with def_col2:
+        st.write(f"{st.session_state.team_b}")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if st.button("Tackle", key="tackle_b"):
+                record_event("Tackle", st.session_state.team_b)
+        with col2:
+            if st.button("Intercept", key="interception_b"):
+                record_event("Interception", st.session_state.team_b)
+        with col3:
+            if st.button("Foul", key="foul_b"):
+                record_event("Foul", st.session_state.team_b)
+        
+        # Cards for Team B
+        card_b1, card_b2 = st.columns(2)
+        with card_b1:
+            if st.button("Yellow", key="yellow_b"):
+                player = st.text_input("Player (Yellow):", key="yellow_player_b")
+                record_event("Card", st.session_state.team_b, player, "Yellow")
+        with card_b2:
+            if st.button("Red", key="red_b"):
+                player = st.text_input("Player (Red):", key="red_player_b")
+                record_event("Card", st.session_state.team_b, player, "Red")
 
 with tab4:
     # Aerial duels
@@ -158,22 +266,22 @@ with tab4:
     aerial_col1, aerial_col2 = st.columns(2)
     with aerial_col1:
         st.write(f"{st.session_state.team_a}")
-        duel_a1, duel_a2 = st.columns(2)
-        with duel_a1:
-            if st.button("Won", key="aerial_won_a", use_container_width=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Won", key="aerial_won_a"):
                 record_event("Aerial Duel", st.session_state.team_a, "", "Won")
-        with duel_a2:
-            if st.button("Lost", key="aerial_lost_a", use_container_width=True):
+        with col2:
+            if st.button("Lost", key="aerial_lost_a"):
                 record_event("Aerial Duel", st.session_state.team_a, "", "Lost")
     
     with aerial_col2:
         st.write(f"{st.session_state.team_b}")
-        duel_b1, duel_b2 = st.columns(2)
-        with duel_b1:
-            if st.button("Won", key="aerial_won_b", use_container_width=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Won", key="aerial_won_b"):
                 record_event("Aerial Duel", st.session_state.team_b, "", "Won")
-        with duel_b2:
-            if st.button("Lost", key="aerial_lost_b", use_container_width=True):
+        with col2:
+            if st.button("Lost", key="aerial_lost_b"):
                 record_event("Aerial Duel", st.session_state.team_b, "", "Lost")
 
 # Data reporting
