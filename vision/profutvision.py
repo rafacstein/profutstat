@@ -100,13 +100,13 @@ def record_event(event, team, player="", event_type="", subtype=""):
 # ========== STREAMLIT UI ==========
 st.title("⚽ Football Match Tracker")
 
-# Team configuration and timer
-col1, col2, col3 = st.columns([2,2,3])
-with col1:
+# Top control row - Timer and Teams
+control_col1, control_col2, control_col3 = st.columns([2,2,3])
+with control_col1:
     st.session_state.team_a = st.text_input("Home Team:", "Team A")
-with col2:
+with control_col2:
     st.session_state.team_b = st.text_input("Away Team:", "Team B")
-with col3:
+with control_col3:
     st.session_state.playback_speed = st.radio("Speed:", [1, 2], horizontal=True)
     timer_col1, timer_col2, timer_col3 = st.columns(3)
     with timer_col1:
@@ -119,7 +119,7 @@ with col3:
         if st.button("↻ Reset", use_container_width=True):
             reset_timer()
 
-# Current time and possession
+# Second row - Time and Possession
 time_col, poss_col_a, poss_col_b = st.columns([2,1,1])
 with time_col:
     current_time = get_current_time()
@@ -137,154 +137,177 @@ with poss_col_b:
         set_possession(st.session_state.team_b)
     st.metric("Possession", f"{team_b_poss:.1f}%")
 
-# Main action tabs
-tab1, tab2, tab3, tab4 = st.tabs(["Passing", "Shooting", "Defensive", "Aerial"])
+# Main action buttons - All visible on one screen
+st.header("Match Actions")
 
-with tab1:
-    # Passing buttons
-    st.subheader("Passing")
-    pass_col1, pass_col2 = st.columns(2)
-    with pass_col1:
-        st.write(f"{st.session_state.team_a}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Short ✓", key="short_pass_a_success"):
-                record_event("Pass", st.session_state.team_a, "", "Successful", "Short")
-        with col2:
-            if st.button("Short ✗", key="short_pass_a_fail"):
-                record_event("Pass", st.session_state.team_a, "", "Failed", "Short")
-        col3, col4 = st.columns(2)
-        with col3:
-            if st.button("Long ✓", key="long_pass_a_success"):
-                record_event("Pass", st.session_state.team_a, "", "Successful", "Long")
-        with col4:
-            if st.button("Long ✗", key="long_pass_a_fail"):
-                record_event("Pass", st.session_state.team_a, "", "Failed", "Long")
+# PASSING SECTION
+st.subheader("Passing")
+pass_col1, pass_col2 = st.columns(2)
+with pass_col1:
+    st.markdown(f"**{st.session_state.team_a}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Short ✓", key="short_pass_a_success", on_click=record_event, 
+                args=("Pass", st.session_state.team_a, "", "Successful", "Short"))
+    with col2:
+        st.button("Short ✗", key="short_pass_a_fail", on_click=record_event, 
+                args=("Pass", st.session_state.team_a, "", "Failed", "Short"))
+    col3, col4 = st.columns(2)
+    with col3:
+        st.button("Long ✓", key="long_pass_a_success", on_click=record_event, 
+                args=("Pass", st.session_state.team_a, "", "Successful", "Long"))
+    with col4:
+        st.button("Long ✗", key="long_pass_a_fail", on_click=record_event, 
+                args=("Pass", st.session_state.team_a, "", "Failed", "Long"))
+
+with pass_col2:
+    st.markdown(f"**{st.session_state.team_b}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Short ✓", key="short_pass_b_success", on_click=record_event, 
+                args=("Pass", st.session_state.team_b, "", "Successful", "Short"))
+    with col2:
+        st.button("Short ✗", key="short_pass_b_fail", on_click=record_event, 
+                args=("Pass", st.session_state.team_b, "", "Failed", "Short"))
+    col3, col4 = st.columns(2)
+    with col3:
+        st.button("Long ✓", key="long_pass_b_success", on_click=record_event, 
+                args=("Pass", st.session_state.team_b, "", "Successful", "Long"))
+    with col4:
+        st.button("Long ✗", key="long_pass_b_fail", on_click=record_event, 
+                args=("Pass", st.session_state.team_b, "", "Failed", "Long"))
+
+# CROSSING SECTION
+st.subheader("Crossing")
+cross_col1, cross_col2 = st.columns(2)
+with cross_col1:
+    st.markdown(f"**{st.session_state.team_a}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Cross ✓", key="cross_a_success", on_click=record_event, 
+                args=("Cross", st.session_state.team_a, "", "Successful"))
+    with col2:
+        st.button("Cross ✗", key="cross_a_fail", on_click=record_event, 
+                args=("Cross", st.session_state.team_a, "", "Failed"))
+    st.button("Corner", key="corner_a", on_click=record_event, 
+            args=("Corner", st.session_state.team_a))
+
+with cross_col2:
+    st.markdown(f"**{st.session_state.team_b}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Cross ✓", key="cross_b_success", on_click=record_event, 
+                args=("Cross", st.session_state.team_b, "", "Successful"))
+    with col2:
+        st.button("Cross ✗", key="cross_b_fail", on_click=record_event, 
+                args=("Cross", st.session_state.team_b, "", "Failed"))
+    st.button("Corner", key="corner_b", on_click=record_event, 
+            args=("Corner", st.session_state.team_b))
+
+# SHOOTING SECTION
+st.subheader("Shooting")
+shot_col1, shot_col2 = st.columns(2)
+with shot_col1:
+    st.markdown(f"**{st.session_state.team_a}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("On Target", key="shot_on_a", on_click=record_event, 
+                args=("Shot", st.session_state.team_a, "", "On Target"))
+    with col2:
+        st.button("Off Target", key="shot_off_a", on_click=record_event, 
+                args=("Shot", st.session_state.team_a, "", "Off Target"))
+    player_a = st.text_input("Scorer:", key="scorer_a")
+    st.button("⚽ Goal", key="goal_a", on_click=record_event, 
+            args=("Goal", st.session_state.team_a, player_a))
+
+with shot_col2:
+    st.markdown(f"**{st.session_state.team_b}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("On Target", key="shot_on_b", on_click=record_event, 
+                args=("Shot", st.session_state.team_b, "", "On Target"))
+    with col2:
+        st.button("Off Target", key="shot_off_b", on_click=record_event, 
+                args=("Shot", st.session_state.team_b, "", "Off Target"))
+    player_b = st.text_input("Scorer:", key="scorer_b")
+    st.button("⚽ Goal", key="goal_b", on_click=record_event, 
+            args=("Goal", st.session_state.team_b, player_b))
+
+# DEFENSIVE SECTION
+st.subheader("Defensive Actions")
+def_col1, def_col2 = st.columns(2)
+with def_col1:
+    st.markdown(f"**{st.session_state.team_a}**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.button("Tackle", key="tackle_a", on_click=record_event, 
+                args=("Tackle", st.session_state.team_a))
+    with col2:
+        st.button("Intercept", key="interception_a", on_click=record_event, 
+                args=("Interception", st.session_state.team_a))
+    with col3:
+        st.button("Foul", key="foul_a", on_click=record_event, 
+                args=("Foul", st.session_state.team_a))
     
-    with pass_col2:
-        st.write(f"{st.session_state.team_b}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Short ✓", key="short_pass_b_success"):
-                record_event("Pass", st.session_state.team_b, "", "Successful", "Short")
-        with col2:
-            if st.button("Short ✗", key="short_pass_b_fail"):
-                record_event("Pass", st.session_state.team_b, "", "Failed", "Short")
-        col3, col4 = st.columns(2)
-        with col3:
-            if st.button("Long ✓", key="long_pass_b_success"):
-                record_event("Pass", st.session_state.team_b, "", "Successful", "Long")
-        with col4:
-            if st.button("Long ✗", key="long_pass_b_fail"):
-                record_event("Pass", st.session_state.team_b, "", "Failed", "Long")
+    # Cards for Team A
+    card_col1, card_col2 = st.columns(2)
+    with card_col1:
+        yellow_player_a = st.text_input("Player (Yellow):", key="yellow_player_a")
+        st.button("Yellow", key="yellow_a", on_click=record_event, 
+                args=("Card", st.session_state.team_a, yellow_player_a, "Yellow"))
+    with card_col2:
+        red_player_a = st.text_input("Player (Red):", key="red_player_a")
+        st.button("Red", key="red_a", on_click=record_event, 
+                args=("Card", st.session_state.team_a, red_player_a, "Red"))
 
-with tab2:
-    # Shooting buttons
-    st.subheader("Shooting")
-    shot_col1, shot_col2 = st.columns(2)
-    with shot_col1:
-        st.write(f"{st.session_state.team_a}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("On Target", key="shot_on_a"):
-                record_event("Shot", st.session_state.team_a, "", "On Target")
-        with col2:
-            if st.button("Off Target", key="shot_off_a"):
-                record_event("Shot", st.session_state.team_a, "", "Off Target")
-        if st.button("⚽ Goal", key="goal_a"):
-            player = st.text_input("Scorer:", key="scorer_a")
-            record_event("Goal", st.session_state.team_a, player)
+with def_col2:
+    st.markdown(f"**{st.session_state.team_b}**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.button("Tackle", key="tackle_b", on_click=record_event, 
+                args=("Tackle", st.session_state.team_b))
+    with col2:
+        st.button("Intercept", key="interception_b", on_click=record_event, 
+                args=("Interception", st.session_state.team_b))
+    with col3:
+        st.button("Foul", key="foul_b", on_click=record_event, 
+                args=("Foul", st.session_state.team_b))
     
-    with shot_col2:
-        st.write(f"{st.session_state.team_b}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("On Target", key="shot_on_b"):
-                record_event("Shot", st.session_state.team_b, "", "On Target")
-        with col2:
-            if st.button("Off Target", key="shot_off_b"):
-                record_event("Shot", st.session_state.team_b, "", "Off Target")
-        if st.button("⚽ Goal", key="goal_b"):
-            player = st.text_input("Scorer:", key="scorer_b")
-            record_event("Goal", st.session_state.team_b, player)
+    # Cards for Team B
+    card_col1, card_col2 = st.columns(2)
+    with card_col1:
+        yellow_player_b = st.text_input("Player (Yellow):", key="yellow_player_b")
+        st.button("Yellow", key="yellow_b", on_click=record_event, 
+                args=("Card", st.session_state.team_b, yellow_player_b, "Yellow"))
+    with card_col2:
+        red_player_b = st.text_input("Player (Red):", key="red_player_b")
+        st.button("Red", key="red_b", on_click=record_event, 
+                args=("Card", st.session_state.team_b, red_player_b, "Red"))
 
-with tab3:
-    # Defensive actions
-    st.subheader("Defensive Actions")
-    def_col1, def_col2 = st.columns(2)
-    with def_col1:
-        st.write(f"{st.session_state.team_a}")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("Tackle", key="tackle_a"):
-                record_event("Tackle", st.session_state.team_a)
-        with col2:
-            if st.button("Intercept", key="interception_a"):
-                record_event("Interception", st.session_state.team_a)
-        with col3:
-            if st.button("Foul", key="foul_a"):
-                record_event("Foul", st.session_state.team_a)
-        
-        # Cards for Team A
-        card_a1, card_a2 = st.columns(2)
-        with card_a1:
-            if st.button("Yellow", key="yellow_a"):
-                player = st.text_input("Player (Yellow):", key="yellow_player_a")
-                record_event("Card", st.session_state.team_a, player, "Yellow")
-        with card_a2:
-            if st.button("Red", key="red_a"):
-                player = st.text_input("Player (Red):", key="red_player_a")
-                record_event("Card", st.session_state.team_a, player, "Red")
-    
-    with def_col2:
-        st.write(f"{st.session_state.team_b}")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("Tackle", key="tackle_b"):
-                record_event("Tackle", st.session_state.team_b)
-        with col2:
-            if st.button("Intercept", key="interception_b"):
-                record_event("Interception", st.session_state.team_b)
-        with col3:
-            if st.button("Foul", key="foul_b"):
-                record_event("Foul", st.session_state.team_b)
-        
-        # Cards for Team B
-        card_b1, card_b2 = st.columns(2)
-        with card_b1:
-            if st.button("Yellow", key="yellow_b"):
-                player = st.text_input("Player (Yellow):", key="yellow_player_b")
-                record_event("Card", st.session_state.team_b, player, "Yellow")
-        with card_b2:
-            if st.button("Red", key="red_b"):
-                player = st.text_input("Player (Red):", key="red_player_b")
-                record_event("Card", st.session_state.team_b, player, "Red")
+# AERIAL DUELS SECTION
+st.subheader("Aerial Duels")
+aerial_col1, aerial_col2 = st.columns(2)
+with aerial_col1:
+    st.markdown(f"**{st.session_state.team_a}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Won", key="aerial_won_a", on_click=record_event, 
+                args=("Aerial Duel", st.session_state.team_a, "", "Won"))
+    with col2:
+        st.button("Lost", key="aerial_lost_a", on_click=record_event, 
+                args=("Aerial Duel", st.session_state.team_a, "", "Lost"))
 
-with tab4:
-    # Aerial duels
-    st.subheader("Aerial Duels")
-    aerial_col1, aerial_col2 = st.columns(2)
-    with aerial_col1:
-        st.write(f"{st.session_state.team_a}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Won", key="aerial_won_a"):
-                record_event("Aerial Duel", st.session_state.team_a, "", "Won")
-        with col2:
-            if st.button("Lost", key="aerial_lost_a"):
-                record_event("Aerial Duel", st.session_state.team_a, "", "Lost")
-    
-    with aerial_col2:
-        st.write(f"{st.session_state.team_b}")
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Won", key="aerial_won_b"):
-                record_event("Aerial Duel", st.session_state.team_b, "", "Won")
-        with col2:
-            if st.button("Lost", key="aerial_lost_b"):
-                record_event("Aerial Duel", st.session_state.team_b, "", "Lost")
+with aerial_col2:
+    st.markdown(f"**{st.session_state.team_b}**")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.button("Won", key="aerial_won_b", on_click=record_event, 
+                args=("Aerial Duel", st.session_state.team_b, "", "Won"))
+    with col2:
+        st.button("Lost", key="aerial_lost_b", on_click=record_event, 
+                args=("Aerial Duel", st.session_state.team_b, "", "Lost"))
 
-# Data reporting
+# Data reporting at bottom
 st.header("Match Report")
 if not st.session_state.match_data.empty:
     st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"]))
