@@ -10,7 +10,7 @@ from fuzzywuzzy import fuzz
 
 # %%
 # Caminho do CSV (substitua pelo seu caminho real)
-caminho_csv = 'https://raw.githubusercontent.com/rafacstein/profutstat/scouting/main/final_merged_data.csv'
+caminho_csv = 'https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.csv'
 df = pd.read_csv(caminho_csv)
 
 # %%
