@@ -28,7 +28,7 @@ def load_data_from_github(url):
         return None
 
 # URL do arquivo Parquet no GitHub (substitua pelo seu)
-GITHUB_PARQUET_URL = "https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.parquet"
+GITHUB_PARQUET_URL = "https://github.com/rafacstein/profutstat/raw/refs/heads/main/scouting/final_merged_data.parquet"
 
 # Carregar dados
 with st.spinner('Carregando dados... Isso pode levar alguns minutos...'):
