@@ -11,7 +11,7 @@ from fuzzywuzzy import fuzz
 # %%
 # Caminho do CSV (substitua pelo seu caminho real)
 caminho_csv = 'https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.csv'
-df = pd.read_csv(caminho_csv)
+df = pd.read_csv(caminho_csv, sep=";")
 
 # %%
 # Exibir estrutura do dataframe
