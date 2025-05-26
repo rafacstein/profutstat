@@ -3,6 +3,12 @@ import streamlit as st
 import requests
 from io import BytesIO
 import pyarrow.parquet as pq
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics.pairwise import cosine_similarity
+from fuzzywuzzy import fuzz
 
 # Configuração da página
 st.set_page_config(page_title="Football Scout", page_icon="⚽")
