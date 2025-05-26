@@ -17,25 +17,19 @@ st.set_page_config(
 
 # Função para carregar dados do GitHub
 @st.cache_data
-def load_data_from_github(url):
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        file = io.BytesIO(response.content)
-        return pd.read_parquet(file)
-    except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
-        return None
+import pandas as pd
+import streamlit as st
+import base64
+from io import BytesIO
 
-# URL do arquivo Parquet no GitHub (substitua pelo seu)
-GITHUB_PARQUET_URL = "https://github.com/rafacstein/profutstat/raw/refs/heads/main/scouting/final_merged_data.parquet"
+@st.cache_data
+def load_data():
+    url = "https://raw.githubusercontent.com/rafacstein/profutstat/scouting/final_merged_data.parquet"
+    response = requests.get(url)
+    df = pd.read_parquet(io.BytesIO(response.content))
+    return df
 
-# Carregar dados
-with st.spinner('Carregando dados... Isso pode levar alguns minutos...'):
-    df = load_data_from_github(GITHUB_PARQUET_URL)
-
-if df is None:
-    st.stop()
+df = load_data()
 
 # Pré-processamento (similar ao seu script original)
 colunas_numericas = ["rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
