@@ -73,7 +73,7 @@ def encontrar_similares(df, nome_atleta, n=5):
 def main():
     st.title("Recomendação de Atletas Similares - Profutstat")
     
-    df = carregar_dados("final_merged_data.parquet")
+    df = carregar_dados("scouting/final_merged_data.parquet")
     
     ligas = df['league'].dropna().unique().tolist()
     posicoes = df['positions'].dropna().unique().tolist()
