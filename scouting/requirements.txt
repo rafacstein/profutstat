@@ -1,8 +1,5 @@
-pandas
-plotly
 streamlit
+pandas
 numpy
-dask
-fsspec
-requests
-os
+scikit-learn
+openpyxl
