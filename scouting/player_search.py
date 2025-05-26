@@ -10,14 +10,15 @@ from fuzzywuzzy import fuzz
 
 # %%
 # Caminho do CSV (substitua pelo seu caminho real)
-caminho_csv = 'https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.csv'
-df = pd.read_csv(caminho_csv, sep=";")
+url = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/final_merged_data.csv"
+
 try:
-    df = pd.read_csv(url, sep=",", encoding="utf-8")
-except pd.errors.ParserError:
-    df = pd.read_csv(url, sep=";", encoding="utf-8")
-except UnicodeDecodeError:
-    df = pd.read_csv(url, sep=";", encoding="latin1")
+    df = pd.read_csv(url, sep=",", encoding="utf-8", on_bad_lines="skip")
+except Exception as e:
+    print("Erro com vírgula, tentando com ponto e vírgula...")
+    df = pd.read_csv(url, sep=";", encoding="utf-8", on_bad_lines="skip")
+
+print(df.head())
 
 # %%
 # Exibir estrutura do dataframe
