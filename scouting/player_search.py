@@ -17,12 +17,6 @@ st.set_page_config(
 
 # Função para carregar dados do GitHub
 @st.cache_data
-import pandas as pd
-import streamlit as st
-import base64
-from io import BytesIO
-
-@st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/rafacstein/profutstat/scouting/final_merged_data.parquet"
     response = requests.get(url)
