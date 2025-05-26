@@ -1,28 +1,73 @@
-# %%
 import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-import seaborn as sns
-from fuzzywuzzy import fuzz
+import streamlit as st
+import requests
+from io import BytesIO
+import pyarrow.parquet as pq
 
-# %%
-# Caminho do CSV (substitua pelo seu caminho real)
-url = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/final_merged_data.csv"
+# Configuração da página
+st.set_page_config(page_title="Football Scout", page_icon="⚽")
 
-try:
-    df = pd.read_csv(url, sep=",", encoding="utf-8", on_bad_lines="skip")
-except Exception as e:
-    print("Erro com vírgula, tentando com ponto e vírgula...")
-    df = pd.read_csv(url, sep=";", encoding="utf-8", on_bad_lines="skip")
+@st.cache_data
+def load_parquet_from_github(url):
+    """
+    Carrega arquivo Parquet do GitHub com verificação robusta
+    """
+    try:
+        # Baixa o arquivo
+        response = requests.get(url)
+        response.raise_for_status()  # Verifica erros HTTP
+        
+        # Verifica se o conteúdo parece ser um Parquet
+        if not response.content[:4] == b'PAR1':
+            st.error("O arquivo não parece ser um Parquet válido")
+            return None
+            
+        # Tenta ler com PyArrow (mais robusto)
+        try:
+            buffer = BytesIO(response.content)
+            table = pq.read_table(buffer)
+            return table.to_pandas()
+        except Exception as e:
+            st.error(f"Erro ao ler Parquet: {str(e)}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        st.error(f"Erro ao baixar arquivo: {str(e)}")
+        return None
+    except Exception as e:
+        st.error(f"Erro inesperado: {str(e)}")
+        return None
 
-print(df.head())
+# Interface
+st.title("⚽ Football Scout")
 
-# %%
-# Exibir estrutura do dataframe
-print(df.info())
+# Substitua pela URL real do seu arquivo
+GITHUB_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/final_merged_data.parquet"
+
+with st.spinner("Carregando dados..."):
+    df = load_parquet_from_github(GITHUB_URL)
+
+if df is not None:
+    st.success("Dados carregados com sucesso!")
+    st.write(f"Total de jogadores: {len(df)}")
+    st.dataframe(df.head())
+else:
+    st.error("Falha ao carregar os dados. Verifique:")
+    st.markdown("""
+    1. O link do GitHub está correto?
+    2. O arquivo é um Parquet válido?
+    3. O arquivo não está corrompido?
+    """)
+
+    # Opção alternativa para upload local
+    uploaded_file = st.file_uploader("Ou faça upload do arquivo Parquet", type=['parquet'])
+    if uploaded_file:
+        try:
+            df = pd.read_parquet(uploaded_file)
+            st.success("Arquivo carregado com sucesso!")
+            st.dataframe(df.head())
+        except Exception as e:
+            st.error(f"Erro ao ler arquivo: {str(e)}")
 
 # %%
 # Lista de colunas numéricas utilizadas na análise
