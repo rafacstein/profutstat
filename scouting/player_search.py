@@ -16,14 +16,15 @@ st.set_page_config(
 )
 
 # Função para carregar dados do GitHub
+# Função para carregar os dados de um arquivo CSV
 @st.cache_data
-def load_data():
-    url = "https://raw.githubusercontent.com/rafacstein/profutstat/scouting/final_merged_data.parquet"
-    response = requests.get(url)
-    df = pd.read_parquet(io.BytesIO(response.content))
+def carregar_dados_csv(url_csv):
+    df = pd.read_csv(url_csv)
     return df
 
-df = load_data()
+# Exemplo de uso:
+url_csv = "https://raw.githubusercontent.com/rafacstein/profutstat/scouting/main/final_merged_data.csv"
+df = carregar_dados_csv(url_csv)
 
 # Pré-processamento (similar ao seu script original)
 colunas_numericas = ["rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
