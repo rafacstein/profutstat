@@ -1,110 +1,122 @@
-import requests
-import dask.dataframe as dd
-import os
+import streamlit as st
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics.pairwise import cosine_similarity
 
-# URL do Google Sheets
-sheet_id = st.secrets['google_sheets']['sheet_id']
-sheet_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv'
+# --- Defina sua lista de colunas para similaridade ---
+estatisticas_cols = [
+    "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
+    "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
+    "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
+    "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
+    "directRedCards", "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
+    "shotsOffTarget", "groundDuelsWon", "groundDuelsWonPercentage", "aerialDuelsWon", "aerialDuelsWonPercentage",
+    "totalDuelsWon", "totalDuelsWonPercentage", "minutesPlayed", "goalConversionPercentage", "penaltiesTaken",
+    "penaltyGoals", "penaltyWon", "penaltyConceded", "shotFromSetPiece", "freeKickGoal", "goalsFromInsideTheBox",
+    "goalsFromOutsideTheBox", "shotsFromInsideTheBox", "shotsFromOutsideTheBox", "headedGoals", "leftFootGoals",
+    "rightFootGoals", "accurateLongBalls", "accurateLongBallsPercentage", "clearances", "errorLeadToGoal",
+    "errorLeadToShot", "dispossessed", "possessionLost", "possessionWonAttThird", "totalChippedPasses",
+    "accurateChippedPasses", "touches", "wasFouled", "fouls", "hitWoodwork", "ownGoals", "dribbledPast",
+    "offsides", "blockedShots", "passToAssist", "saves", "cleanSheet", "penaltyFaced", "penaltySave",
+    "savedShotsFromInsideTheBox", "savedShotsFromOutsideTheBox", "goalsConcededInsideTheBox",
+    "goalsConcededOutsideTheBox", "punches", "runsOut", "successfulRunsOut", "highClaims", "crossesNotClaimed",
+    "matchesStarted", "penaltyConversion", "setPieceConversion", "totalAttemptAssist", "totalContest",
+    "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss", "attemptPenaltyPost", "attemptPenaltyTarget",
+    "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards",
+    "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",
+    "goalKicks","ballRecovery", "appearances"
+]
 
-# Baixando o CSV
-response = requests.get(sheet_url)
-if response.status_code == 200:
-    with open("/tmp/dados.csv", "wb") as f:
-        f.write(response.content)
-else:
-    st.error("Erro ao baixar o CSV")
+@st.cache_data(show_spinner=True)
+def carregar_dados(path):
+    df = pd.read_parquet(path)
+    return df
 
-# Carregar com Dask
-dados = dd.read_csv("/tmp/dados.csv")
+def filtrar_base(df, ligas, posicoes, idade_min, idade_max, valor_min, valor_max):
+    cond = (
+        (df['league'].isin(ligas)) &
+        (df['positions'].isin(posicoes)) &
+        (df['age'] >= idade_min) & (df['age'] <= idade_max) &
+        (df['proposedMarketValue'] >= valor_min) & (df['proposedMarketValue'] <= valor_max)
+    )
+    return df[cond].reset_index(drop=True)
 
-# Filtrando apenas jogadores com minutos jogados > 0
-dados = dados[dados['minutesPlayed'] > 0]
+def encontrar_similares(df, nome_atleta, n=5):
+    # Busca atleta
+    base_nome = df[df['playerName'].str.contains(nome_atleta, case=False, na=False)]
+    if base_nome.empty:
+        return None, f"Nenhum atleta encontrado com nome '{nome_atleta}'"
+    
+    atleta_ref = base_nome.iloc[0]
+    
+    # Subset das estatísticas para similaridade
+    base_stats = df[estatisticas_cols].fillna(0)
+    
+    # Normaliza estatísticas
+    scaler = StandardScaler()
+    base_stats_scaled = scaler.fit_transform(base_stats)
+    
+    # Encontra índice do atleta de referência
+    idx_ref = base_nome.index[0]
+    
+    # Calcula similaridade pelo cosseno
+    sim = cosine_similarity([base_stats_scaled[idx_ref]], base_stats_scaled)[0]
+    
+    # Ordena índices dos mais similares (exclui o próprio atleta)
+    idx_similares = np.argsort(sim)[::-1]
+    idx_similares = idx_similares[idx_similares != idx_ref]
+    
+    # Retorna top n atletas similares
+    return df.loc[idx_similares[:n]], None
 
-st.title('Análise de Jogadores - Futebol ⚽')
-st.write('Filtre jogadores e explore estatísticas avançadas.')
+def main():
+    st.title("Recomendação de Atletas Similares - Profutstat")
+    
+    df = carregar_dados("base_atletas.parquet")
+    
+    ligas = df['league'].dropna().unique().tolist()
+    posicoes = df['positions'].dropna().unique().tolist()
+    
+    idade_min, idade_max = int(df['age'].min()), int(df['age'].max())
+    valor_min, valor_max = int(df['proposedMarketValue'].min()), int(df['proposedMarketValue'].max())
+    
+    st.sidebar.header("Filtros")
+    liga_selecionada = st.sidebar.multiselect("Selecione as ligas", ligas, default=ligas)
+    posicao_selecionada = st.sidebar.multiselect("Selecione as posições", posicoes, default=posicoes)
+    idade_faixa = st.sidebar.slider("Faixa de idade", idade_min, idade_max, (idade_min, idade_max))
+    valor_faixa = st.sidebar.slider("Faixa de valor de mercado", valor_min, valor_max, (valor_min, valor_max))
+    
+    nome_busca = st.text_input("Digite o nome do atleta para referência (busca parcial)", value="")
+    
+    if st.button("Buscar similares"):
+        if nome_busca.strip() == "":
+            st.error("Por favor, digite o nome do atleta para referência.")
+            return
+        
+        df_filtrado = filtrar_base(df, liga_selecionada, posicao_selecionada,
+                                   idade_faixa[0], idade_faixa[1], valor_faixa[0], valor_faixa[1])
+        
+        if df_filtrado.empty:
+            st.warning("Nenhum atleta encontrado com os filtros selecionados.")
+            return
+        
+        similares, erro = encontrar_similares(df_filtrado, nome_busca, n=5)
+        if erro:
+            st.warning(erro)
+            return
+        
+        st.write(f"Atletas similares a '{nome_busca}' no conjunto filtrado:")
+        st.dataframe(similares)
+        
+        # Botão para exportar Excel
+        import io
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            similares.to_excel(writer, index=False, sheet_name='Similares')
+        output.seek(0)
+        
+        st.download_button(label="Baixar relatório Excel", data=output, file_name="atletas_similares.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# Tratamento de valores ausentes ou chaves inexistentes
-def tratar_valor(dicionario, chave):
-    try:
-        valor = dicionario.get(chave, 'Não disponível')
-        return valor if pd.notna(valor) else 'Não disponível'
-    except Exception:
-        return 'Não disponível'
-
-# Função para calcular idade com tratamento de erros
-def calcular_idade(timestamp):
-    try:
-        if pd.notna(timestamp):
-            idade = int((pd.Timestamp.now().timestamp() - timestamp) // (365.25 * 24 * 3600))
-            return idade
-    except Exception:
-        pass
-    return 'Não disponível'
-
-# Opções de filtros
-nome = st.text_input('Nome do Jogador')
-equipe = st.multiselect('Equipe', sorted(dados['player.team.name'].dropna().unique().compute().tolist()))
-posicao = st.multiselect('Posição', sorted(dados['player.position'].dropna().unique().compute().tolist()))
-pe_preferido = st.multiselect('Pé Preferido', sorted(dados['player.preferredFoot'].dropna().unique().compute().tolist()))
-campeonato = st.multiselect('Campeonato', sorted(dados['campeonato'].dropna().unique().compute().tolist()))
-
-# Aplicação dos filtros
-filtros = (
-    (dados['player.name'].str.contains(nome, case=False, na=False)) &
-    (dados['player.team.name'].isin(equipe) if equipe else True) &
-    (dados['player.position'].isin(posicao) if posicao else True) &
-    (dados['player.preferredFoot'].isin(pe_preferido) if pe_preferido else True) &
-    (dados['campeonato'].isin(campeonato) if campeonato else True)
-)
-dados_filtrados = dados[filtros]
-
-st.write(f'Jogadores encontrados: {len(dados_filtrados.compute())}')
-
-# Função para exibir os dados ofensivos
-def mostrar_dados_ofensivos(jogador):
-    dados_ofensivos = {
-        'Participações em Gols': tratar_valor(jogador, 'goalsAssistsSum'),
-        '% de passes corretos': tratar_valor(jogador, 'accuratePassesPercentage'),
-        '% de Dribles corretos': tratar_valor(jogador, 'successfulDribblesPercentage'),
-        'Passes certos no último terço': tratar_valor(jogador, 'accurateFinalThirdPasses')
-    }
-    return pd.DataFrame(dados_ofensivos.items(), columns=['Atributo', 'Valor'])
-
-# Função para exibir os dados defensivos
-def mostrar_dados_defensivos(jogador):
-    dados_defensivos = {
-        'Duelos aéreos ganhos': tratar_valor(jogador, 'aerialDuelsWonPercentage'),
-        'Duelos ganhos no chão': tratar_valor(jogador, 'totalDuelsWonPercentage'),
-        'Recuperação de bolas': tratar_valor(jogador, 'BallRecovery'),
-        'Dribles sofridos': tratar_valor(jogador, 'dribbledPast')
-    }
-    return pd.DataFrame(dados_defensivos.items(), columns=['Atributo', 'Valor'])
-
-# Exibição dos cards
-# Convertendo para pandas para exibição
-dados_filtrados_pandas = dados_filtrados.compute()
-
-for _, jogador in dados_filtrados_pandas.iterrows():
-    with st.expander(f"{tratar_valor(jogador, 'player.name')} ({tratar_valor(jogador, 'player.team.name')})"):
-        st.write(f"Posição: {tratar_valor(jogador, 'player.position')}")
-        st.write(f"Altura: {tratar_valor(jogador, 'player.height')} cm | Pé Preferido: {tratar_valor(jogador, 'player.preferredFoot')}")
-        st.write(f"País: {tratar_valor(jogador, 'player.country.name')} | Idade: {calcular_idade(jogador.get('player.dateOfBirthTimestamp', None))} anos")
-        st.write(f"Contrato: {tratar_valor(jogador, 'player.contractUntilTimestamp')}")
-
-        # Estatísticas avançadas
-        st.subheader('Estatísticas Avançadas')
-        estatisticas = {
-            'Minutos Jogados': tratar_valor(jogador, 'minutesPlayed'),
-            'Valor de Mercado': tratar_valor(jogador, 'player.proposedMarketValue'),
-            'Contrato Até': tratar_valor(jogador, 'player.contractUntilTimestamp'),
-            'Número da Camisa': tratar_valor(jogador, 'player.shirtNumber')
-        }
-        st.table(pd.DataFrame(estatisticas.items(), columns=['Estatística', 'Valor']))
-
-        # Dados ofensivos
-        st.subheader('Dados Ofensivos')
-        st.table(mostrar_dados_ofensivos(jogador))
-
-        # Dados defensivos
-        st.subheader('Dados Defensivos')
-        st.table(mostrar_dados_defensivos(jogador))
+if __name__ == "__main__":
+    main()
