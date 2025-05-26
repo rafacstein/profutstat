@@ -12,6 +12,12 @@ from fuzzywuzzy import fuzz
 # Caminho do CSV (substitua pelo seu caminho real)
 caminho_csv = 'https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.csv'
 df = pd.read_csv(caminho_csv, sep=";")
+try:
+    df = pd.read_csv(url, sep=",", encoding="utf-8")
+except pd.errors.ParserError:
+    df = pd.read_csv(url, sep=";", encoding="utf-8")
+except UnicodeDecodeError:
+    df = pd.read_csv(url, sep=";", encoding="latin1")
 
 # %%
 # Exibir estrutura do dataframe
