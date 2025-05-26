@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 
 # Configuração da página
 st.set_page_config(
-    page_title="🔎 ProFutStat - Recomendador de Jogadores",
+    page_title="🔎 Football Scout - Recomendador de Jogadores",
     page_icon="⚽",
     layout="wide"
 )
@@ -28,7 +28,7 @@ def load_data_from_github(url):
         return None
 
 # URL do arquivo Parquet no GitHub (substitua pelo seu)
-GITHUB_PARQUET_URL = "https://github.com/rafacstein/profutstat/scouting/raw/main/final_merged_data.parquet"
+GITHUB_PARQUET_URL = "https://github.com/rafacstein/profutstat/blob/main/scouting/final_merged_data.parquet"
 
 # Carregar dados
 with st.spinner('Carregando dados... Isso pode levar alguns minutos...'):
