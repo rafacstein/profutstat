@@ -9,7 +9,7 @@ from fuzzywuzzy import fuzz
 
 st.set_page_config(page_title="Football Scout", page_icon="⚽")
 
-@st.cache_data
+@st.cache_data(show_spinner=True)
 def load_parquet_from_github(url):
     response = requests.get(url)
     response.raise_for_status()
@@ -24,7 +24,14 @@ GITHUB_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scout
 with st.spinner("Carregando dados..."):
     df = load_parquet_from_github(GITHUB_URL)
 
-# Colunas numéricas para análise e normalização
+# Verifique se as colunas existem mesmo:
+required_cols = ['player.name', 'age', 'position', 'player.team.name.1', 'player.proposedMarketValue']
+for c in required_cols:
+    if c not in df.columns:
+        st.error(f"Coluna obrigatória '{c}' não encontrada no dataframe!")
+        st.stop()
+
+# Colunas numéricas para análise e normalização (ajuste se precisar)
 colunas_numericas = [
     "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
     "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
@@ -48,16 +55,18 @@ colunas_numericas = [
     "goalKicks","ballRecovery", "appearances","player.proposedMarketValue", "age", "player.height"
 ]
 
-# Preencher NAs e normalizar
-df[colunas_numericas] = df[colunas_numericas].fillna(df[colunas_numericas].median())
-scaler = StandardScaler()
-dados_normalizados = scaler.fit_transform(df[colunas_numericas])
+# Ajuste colunas faltantes (caso haja)
+colunas_numericas_existentes = [c for c in colunas_numericas if c in df.columns]
 
-# Calcular matriz de similaridade
+# Preencher NAs e normalizar
+df[colunas_numericas_existentes] = df[colunas_numericas_existentes].fillna(df[colunas_numericas_existentes].median())
+scaler = StandardScaler()
+dados_normalizados = scaler.fit_transform(df[colunas_numericas_existentes])
+
 similaridade = cosine_similarity(dados_normalizados)
 df_similaridade = pd.DataFrame(similaridade, index=df.index, columns=df.index)
 
-# Interface para filtro
+# Interface
 st.title("Football Scout - Recomendação de Jogadores Similares")
 
 nome_input = st.text_input("Nome do atleta (deixe vazio para ignorar):").strip()
@@ -66,20 +75,21 @@ idade_max = st.number_input("Idade máxima", min_value=10, max_value=50, value=4
 posicoes = df['position'].dropna().unique()
 posicao_selecionada = st.selectbox("Selecione posição (opcional)", options=["Todas"] + list(posicoes))
 
-# Filtragem básica por idade e posição
+# Filtro idade e posição
 filtro = (df['age'] >= idade_min) & (df['age'] <= idade_max)
 if posicao_selecionada != "Todas":
     filtro &= (df['position'] == posicao_selecionada)
 
-df_filtrado = df[filtro]
+df_filtrado = df[filtro].copy()
 
-def encontrar_atleta_por_nome(nome, df):
+def encontrar_atleta_por_nome(nome, df_local):
     if nome == "":
         return None
     # fuzzy matching: pegar o mais parecido
-    df['similaridade_nome'] = df['player.name'].apply(lambda x: fuzz.token_set_ratio(nome.lower(), str(x).lower()))
-    melhor = df['similaridade_nome'].idxmax()
-    if df.loc[melhor, 'similaridade_nome'] < 60:
+    df_local = df_local.copy()  # evitar warning
+    df_local['similaridade_nome'] = df_local['player.name'].apply(lambda x: fuzz.token_set_ratio(nome.lower(), str(x).lower()))
+    melhor = df_local['similaridade_nome'].idxmax()
+    if df_local.loc[melhor, 'similaridade_nome'] < 60:
         return None
     return melhor
 
@@ -90,11 +100,10 @@ if id_referencia is None and nome_input != "":
 elif id_referencia is None:
     st.info("Digite um nome para obter recomendações, ou ajuste os filtros.")
 else:
-    # pegar similares na mesma posição dentro do filtro
     pos_ref = df.loc[id_referencia, 'position']
-    df_mesma_posicao = df_filtrado[df_filtrado['position'] == pos_ref]
+    df_mesma_pos = df_filtrado[df_filtrado['position'] == pos_ref]
 
-    similaridades = df_similaridade.loc[id_referencia, df_mesma_posicao.index].sort_values(ascending=False)
+    similaridades = df_similaridade.loc[id_referencia, df_mesma_pos.index].sort_values(ascending=False)
     similaridades = similaridades.drop(id_referencia, errors='ignore')
 
     top5 = similaridades.head(5).index
@@ -102,4 +111,3 @@ else:
 
     st.write(f"Recomendações similares para **{df.loc[id_referencia, 'player.name']}** ({pos_ref}):")
     st.dataframe(recomendados.reset_index(drop=True))
-
