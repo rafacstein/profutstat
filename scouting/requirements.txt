@@ -2,5 +2,9 @@ streamlit
 pandas
 numpy
 scikit-learn
-openpyxl
+fuzzywuzzy
+python-Levenshtein
+matplotlib
+seaborn
 pyarrow
+requests
