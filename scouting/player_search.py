@@ -44,7 +44,7 @@ def filtrar_base(df, ligas, posicoes, idade_min, idade_max, valor_min, valor_max
 
 def encontrar_similares(df, nome_atleta, n=5):
     # Busca atleta
-    base_nome = df[df['playerName'].str.contains(nome_atleta, case=False, na=False)]
+    base_nome = df[df['player.name'].str.contains(nome_atleta, case=False, na=False)]
     if base_nome.empty:
         return None, f"Nenhum atleta encontrado com nome '{nome_atleta}'"
     
