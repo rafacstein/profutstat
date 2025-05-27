@@ -10,7 +10,7 @@ from fuzzywuzzy import fuzz
 @st.cache_data(show_spinner=True)
 def carregar_dados(caminho_arquivo):
     df = pd.read_parquet(caminho_arquivo)
-    
+    df = df.sample(frac=0.1, random_state=42)  # 10% dos dados
     colunas_numericas = ["rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
         "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
         "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
