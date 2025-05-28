@@ -31,7 +31,7 @@ def load_data_and_model():
     # Selecionar apenas colunas numéricas relevantes para a similaridade
     colunas_numericas = ["rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
          "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
-         "accurateOwnHalfPasses", "accurateOppositionHalfHalfPasses", "accurateFinalThirdPasses", "keyPasses",
+         "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
          "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
          "directRedCards", "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
          "shotsOffTarget", "groundDuelsWon", "groundDuelsWonPercentage", "aerialDuelsWon", "aerialDuelsWonPercentage",
