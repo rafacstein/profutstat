@@ -138,8 +138,8 @@ if df is not None:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        player_name = st.text_input("Nome do Jogador de Referência", "Mandaca")
-        player_club = st.text_input("Clube (Opcional)", "Juventude")
+        player_name = st.text_input("Nome do Jogador de Referência", "Digite aqui o nome do atleta de referência")
+        player_club = st.text_input("Clube (Opcional)", "Digite aqui o nome do clube")
         
         # Get unique positions from your data for the selectbox
         all_positions = df['position'].str.split(',').explode().str.strip().unique()
@@ -155,7 +155,7 @@ if df is not None:
             value=(20, 30)
         )
         min_value, max_value = st.slider(
-            "Valor de Mercado (Opcional - Em milhões)",
+            "Valor de Mercado (Opcional - Em milhões de euros)",
             min_value=0,
             max_value=100000000, # Assuming max value in your dataset is around this
             value=(0, 2000000), # Default range
