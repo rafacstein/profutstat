@@ -8,7 +8,7 @@ import os # To check for file existence
 
 st.set_page_config(layout="wide", page_title="PlayerScout IA")
 
-st.title("⚽ PlayerScout IA - Encontre o Talento Ideal!")
+st.title("⚽ PlayerScout IA - Powered by ProFutStat")
 
 # --- Data Loading and Preprocessing ---
 
