@@ -202,7 +202,7 @@ col1, col2 = st.columns([1, 6])
 with col1:
     # Ajuste o caminho da logo para o Hugging Face Spaces
     try:
-        st.image("profutstat_logo.png", width=100)
+        st.image("https://github.com/rafacstein/profutstat/raw/main/scouting/profutstat_logo.png", width=100)
     except FileNotFoundError:
         st.warning("Logo 'profutstat_logo.png' não encontrada.")
 with col2:
