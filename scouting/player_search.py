@@ -128,7 +128,7 @@ if df is not None:
             return pd.DataFrame() # Return empty DataFrame if no matches after filtering
             
         return similares.nlargest(top_n, 'similaridade')[[
-            'player.name', 'player.team.name.1', 'position', 'player.country.name','age','minutesPlayed','appearances',
+            'player.name', 'player.team.name.1', 'position', 'player.country.name','player.contractUntilTimestamp','age','minutesPlayed','appearances',
             'player.proposedMarketValue', 'similaridade'
         ]]
 
