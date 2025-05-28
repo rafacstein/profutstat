@@ -237,9 +237,9 @@ with col_filters:
 
     col_valor_min, col_valor_max = st.columns(2)
     with col_valor_min:
-        valor_min_val = st.number_input("Valor Mínimo (M€)", min_value=0, max_value=100000000, value=0, step=1000, format="%.1f")
+        valor_min_val = st.number_input("Valor Mínimo (M€)", min_value=0, max_value=100000000.0, value=0.1, step=100000.0, format="%.1f")
     with col_valor_max:
-        valor_max_val = st.number_input("Valor Máximo (M€)", min_value=0, max_value=100000000, value=100000000, step=100000, format="%.1f")
+        valor_max_val = st.number_input("Valor Máximo (M€)", min_value=0, max_value=100000000.0, value=100000000.0, step=100000.0, format="%.1f")
 
 st.markdown("---")
 
