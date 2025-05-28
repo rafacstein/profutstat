@@ -8,3 +8,4 @@ matplotlib
 seaborn
 pyarrow
 requests
+faiss-cpu
