@@ -17,9 +17,10 @@ def carregar_features():
 
 # Salvar os vetores
     np.save("df_features.npy", X_scaled.astype('float32'))
-    return np.load("df_features.npy")
-    features = np.load("df_features.npy")  # Carrega
-
+    return features = np.load("df_features.npy")
+    
+# Garantir float32 e C-contiguous
+    features = np.ascontiguousarray(features.astype('float32'))
 # Garantir float32 e C-contiguous
     features = np.ascontiguousarray(features.astype('float32'))
 
