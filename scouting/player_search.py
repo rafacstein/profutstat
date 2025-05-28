@@ -16,11 +16,14 @@ st.title("⚽ PlayerScout IA - Encontre o Talento Ideal!")
 # This ensures data is loaded and processed only once
 @st.cache_data
 def load_data():
-    if not os.path.exists('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet'):
-        st.error("Error: 'final_merged_data.parquet' not found. Please upload the data file.")
+    try:
+        # pandas can read parquet directly from a URL
+        df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
+        return df
+    except Exception as e:
+        st.error(f"Error loading data from URL: {e}")
+        st.error("Please ensure the URL is correct and the file is accessible.")
         return None
-    df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
-    return df
 
 @st.cache_data
 def preprocess_data(df_in):
