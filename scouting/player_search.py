@@ -17,12 +17,12 @@ def carregar_features():
 
 # Salvar os vetores
     np.save("df_features.npy", X_scaled.astype('float32'))
-    return features = np.load("df_features.npy")
-    
+    return np.load("df_features.npy")
+features = np.load("df_features.npy")
 # Garantir float32 e C-contiguous
-    features = np.ascontiguousarray(features.astype('float32'))
+features = np.ascontiguousarray(features.astype('float32'))
 # Garantir float32 e C-contiguous
-    features = np.ascontiguousarray(features.astype('float32'))
+features = np.ascontiguousarray(features.astype('float32'))
 
 @st.cache_resource
 def criar_index(features):
