@@ -23,7 +23,7 @@ def load_data_and_model():
     """Carrega os dados e inicializa o scaler e o índice FAISS."""
     # Ler o arquivo Parquet (ajuste o caminho se necessário no Hugging Face Spaces)
     try:
-        df = pd.read_parquet('final_merged_data.parquet')
+        df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
     except FileNotFoundError:
         st.error("Erro: Arquivo 'final_merged_data.parquet' não encontrado. Certifique-se de que ele está no diretório correto.")
         st.stop() # Para a execução do script se o arquivo não for encontrado
