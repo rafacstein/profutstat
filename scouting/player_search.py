@@ -323,7 +323,7 @@ except Exception:
 st.markdown("<h1>ProFutStat: Scout de Atletas</h1>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("Bem-vindo à ferramenta de **Scout de Atletas ProFutStat**! Utilize nossos algoritmos de similaridade baseados em dados de performance para encontrar os jogadores ideais para o seu clube.")
+st.markdown("Bem-vindo à ferramenta **PlayerScout IA da ProFutStat**! Utilize nossos algoritmos de similaridade baseados em dados de performance para encontrar os jogadores ideais para o seu clube.")
 
 # Seção de Atleta de Referência e Critérios de Busca
 st.header("Critérios de Busca")
