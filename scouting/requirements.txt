@@ -10,3 +10,4 @@ pyarrow
 requests
 faiss-cpu
 openpyxl
+xlsxwriter
