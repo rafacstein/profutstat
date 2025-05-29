@@ -9,3 +9,4 @@ seaborn
 pyarrow
 requests
 faiss-cpu
+openpyxl
