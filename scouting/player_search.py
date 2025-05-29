@@ -1,14 +1,14 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, Normalizer # Importa Normalizer
 import faiss
 import streamlit as st
 from fuzzywuzzy import fuzz
-import io # Para o download de arquivos
+import io
 
 # --- Configuração da Página Streamlit ---
 st.set_page_config(
-    page_title="PlayerScout AI",
+    page_title="ProFutStat: Scout de Atletas",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="auto"
@@ -162,10 +162,16 @@ def load_data_and_model():
 
     scaler = StandardScaler()
     dados_normalizados = scaler.fit_transform(df[colunas_numericas])
-    dados_normalizados = dados_normalizados.astype('float32')
+    
+    # --- NOVA ETAPA: NORMALIZAÇÃO L2 para garantir que o produto interno seja a similaridade de cosseno ---
+    normalizer = Normalizer(norm='l2')
+    dados_normalizados = normalizer.fit_transform(dados_normalizados)
+    # --- FIM DA NOVA ETAPA ---
+
+    dados_normalizados = dados_normalizados.astype('float32') # FAISS precisa de float32
 
     dimension = dados_normalizados.shape[1]
-    index = faiss.IndexFlatIP(dimension)
+    index = faiss.IndexFlatIP(dimension) # IndexFlatIP espera vetores normalizados para similaridade de cosseno
     index.add(dados_normalizados)
 
     return df, scaler, index, dados_normalizados
@@ -183,7 +189,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     
     if df is None or faiss_index is None:
         st.error("Dados ou modelo não carregados. Por favor, tente novamente mais tarde.")
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame() # Retorna DFs vazios para ambos
 
     atleta_id = None
     atleta_ref_name = None
@@ -203,7 +209,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
             atleta_ref_name = atleta_ref['player.name']
             atleta_ref_club = atleta_ref['player.team.name.1']
             st.success(f"🔍 Atleta de Referência: **{atleta_ref_name}** ({atleta_ref_club}) encontrado.")
-            # Exibir idade como inteiro
             st.info(f"Posição: {atleta_ref['position']} | Idade: **{int(atleta_ref['age'])}** | Valor: **${atleta_ref['player.proposedMarketValue'] / 1_000_000:.2f}M**")
             
             if strict_posicao and posicao is None:
@@ -233,7 +238,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
 
     if not indices_filtrados:
         st.warning("Nenhum atleta corresponde aos filtros especificados. Tente ajustar os critérios.")
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
     
     # Obter recomendações
     if atleta_id is not None:
@@ -258,7 +263,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         
         if recomendacoes_finais.empty:
             st.info(f"Nenhuma recomendação similar ao atleta **{atleta_ref_name}** encontrada com os filtros aplicados. Tente ajustar os critérios ou o atleta de referência.")
-            return pd.DataFrame()
+            return pd.DataFrame(), pd.DataFrame()
             
         recomendacoes = df.loc[recomendacoes_finais['original_index']].copy()
         recomendacoes['similaridade'] = recomendacoes_finais['similaridade'].values
@@ -271,7 +276,11 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         recomendacoes = df.loc[indices_filtrados].sample(n=min(top_n, len(indices_filtrados)), random_state=42).copy()
         recomendacoes['similaridade'] = np.nan
     
-    # --- Formatação e Renomeação de Colunas para Exibição ---
+    # --- PREPARAÇÃO DO DATAFRAME COMPLETO PARA DOWNLOAD ---
+    # Fazer uma cópia para o download antes das formatações que mudam tipos de dados
+    recomendacoes_para_download = recomendacoes.copy()
+
+    # --- Formatação e Renomeação de Colunas para Exibição na UI ---
     
     # Formatar Idade para Inteiro
     if 'age' in recomendacoes.columns:
@@ -281,9 +290,9 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if 'player.proposedMarketValue' in recomendacoes.columns:
         recomendacoes['player.proposedMarketValue'] = recomendacoes['player.proposedMarketValue'].apply(lambda x: f"${x / 1_000_000:.2f}M")
     
-    # Formatar Similaridade de 0-1 para 0-100
+    # Formatar Similaridade de 0-1 para 0-100 (Após normalização L2, estará entre 0 e 1)
     if atleta_id is not None and 'similaridade' in recomendacoes.columns:
-        recomendacoes['similaridade'] = recomendacoes['similaridade'].apply(lambda x: f"{x * 100:.0f}%") # Multiplica por 100 e arredonda
+        recomendacoes['similaridade'] = recomendacoes['similaridade'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%") # Garante entre 0 e 100
     
     # Renomear colunas para exibição amigável
     recomendacoes_exibicao = recomendacoes.rename(columns={
@@ -300,8 +309,8 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if atleta_id is not None:
         cols_display_final.append('Similaridade')
     
-    # Retornar o DataFrame principal com colunas formatadas e ordenadas
-    return recomendacoes_exibicao[cols_display_final].sort_values(by='Similaridade', ascending=False, na_position='last').reset_index(drop=True), recomendacoes # Retorna também o DF completo para download
+    # Retornar o DataFrame principal com colunas formatadas e ordenadas, e o DF completo para download
+    return recomendacoes_exibicao[cols_display_final].sort_values(by='Similaridade', ascending=False, na_position='last').reset_index(drop=True), recomendacoes_para_download
 
 # --- Layout da Aplicação Streamlit ---
 
@@ -344,8 +353,8 @@ with col_filters:
     with col_idade_max:
         idade_max_val = st.number_input("Idade Máxima", min_value=15, max_value=45, value=35, step=1)
 
-    min_market_value_M = 0.01 # Ajustado para permitir valores muito baixos
-    max_market_value_M = 200.0 # Ajustado para um valor máximo realista para o slider
+    min_market_value_M = 0.01
+    max_market_value_M = 200.0
     default_min_M = 0.5
     default_max_M = 25.0
 
@@ -366,7 +375,6 @@ st.markdown("---")
 # Botão de Recomendação
 if st.button("🔎 Gerar Recomendações", type="primary"):
     with st.spinner("Analisando dados e buscando recomendações..."):
-        # A função agora retorna dois DataFrames: o de exibição e o completo
         recomendacoes_display, recomendacoes_completas = recomendar_atletas_avancado(
             nome=nome_atleta if nome_atleta else None,
             clube=clube_atleta if clube_atleta else None,
@@ -394,7 +402,7 @@ if st.button("🔎 Gerar Recomendações", type="primary"):
 
             excel_buffer = io.BytesIO()
             recomendacoes_completas.to_excel(excel_buffer, index=False, engine='xlsxwriter')
-            excel_buffer.seek(0) # Volta ao início do buffer
+            excel_buffer.seek(0)
 
             col_download_csv, col_download_excel = st.columns(2)
             with col_download_csv:
@@ -414,13 +422,11 @@ if st.button("🔎 Gerar Recomendações", type="primary"):
                     help="Baixe as estatísticas completas dos atletas recomendados em formato Excel."
                 )
 
-            # Expander para ver todas as estatísticas (opcional, pode ser pesado visualmente)
             with st.expander("Clique para ver todas as estatísticas dos atletas recomendados (tabela grande)"):
                 st.dataframe(recomendacoes_completas, use_container_width=True)
-
 
         else:
             st.warning("Nenhuma recomendação encontrada. Por favor, ajuste os critérios de busca e tente novamente.")
 
 st.markdown("---")
-st.write("Desenvolvido pela ProFutStat")
+st.write("Desenvolvido no 🇧🇷 pela ProFutStat")
