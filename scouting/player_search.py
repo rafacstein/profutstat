@@ -8,7 +8,7 @@ import io # Para o download de arquivos
 
 # --- Configuração da Página Streamlit ---
 st.set_page_config(
-    page_title="ProFutStat: Scout de Atletas",
+    page_title="PlayerScout AI",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="auto"
@@ -423,4 +423,4 @@ if st.button("🔎 Gerar Recomendações", type="primary"):
             st.warning("Nenhuma recomendação encontrada. Por favor, ajuste os critérios de busca e tente novamente.")
 
 st.markdown("---")
-st.write("Desenvolvido com 💚 pela ProFutStat")
+st.write("Desenvolvido pela ProFutStat")
