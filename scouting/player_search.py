@@ -320,7 +320,7 @@ try:
     st.image("https://github.com/rafacstein/profutstat/raw/main/scouting/profutstat_logo.png", width=100)
 except Exception:
     st.warning("Logo não encontrada. Verifique o caminho ou a URL da imagem.")
-st.markdown("PlayerScout IA", unsafe_allow_html=True)
+st.markdown("<b>PlayerScout IA</b>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown("Bem-vindo à ferramenta **PlayerScout IA da ProFutStat**! Utilize nossos algoritmos de similaridade baseados em dados de performance para encontrar os jogadores ideais para o seu clube.")
