@@ -4,6 +4,7 @@ from sklearn.preprocessing import StandardScaler
 import faiss
 import streamlit as st
 from fuzzywuzzy import fuzz
+import io # Para o download de arquivos
 
 # --- Configuração da Página Streamlit ---
 st.set_page_config(
@@ -70,6 +71,18 @@ st.markdown(
     .stButton>button:hover {
         background-color: #218838;
     }
+    .stDownloadButton>button {
+        background-color: #007bff; /* Azul para download */
+        color: white;
+        border-radius: 8px;
+        padding: 8px 20px;
+        font-size: 1em;
+        font-weight: normal;
+        transition: background-color 0.3s ease;
+    }
+    .stDownloadButton>button:hover {
+        background-color: #0056b3;
+    }
 
     /* Dataframe */
     .dataframe {
@@ -111,13 +124,11 @@ st.markdown(
 def load_data_and_model():
     """Carrega os dados e inicializa o scaler e o índice FAISS."""
     try:
-        # Usando o link raw do GitHub para acesso direto
         df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
     except Exception as e:
         st.error(f"Erro ao carregar o arquivo de dados. Por favor, verifique o link ou a conexão: {e}")
         st.stop()
 
-    # Selecionar apenas colunas numéricas relevantes para a similaridade
     colunas_numericas = [
         "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
         "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
@@ -141,10 +152,6 @@ def load_data_and_model():
         "goalKicks","ballRecovery", "appearances","player.proposedMarketValue", "age", "player.height"
     ]
 
-    # --- VERIFICAÇÃO DE COLUNAS (AJUSTADA PARA URL) ---
-    # É CRUCIAL que os nomes das colunas aqui correspondam EXATAMENTE aos nomes no seu arquivo parquet.
-    # O erro 'accurateOppositionHalfHalfPasses' foi corrigido para 'accurateOppositionHalfPasses'
-    # conforme a correção anterior, caso não seja o nome exato no seu parquet, ajuste aqui.
     missing_columns = [col for col in colunas_numericas if col not in df.columns]
     if missing_columns:
         st.error(f"Erro: As seguintes colunas numéricas essenciais não foram encontradas no arquivo de dados: **{', '.join(missing_columns)}**")
@@ -183,7 +190,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     atleta_ref_club = None
 
     if nome and clube:
-        # Copia do DF para evitar SettingWithCopyWarning ao adicionar colunas temporárias
         df_temp = df.copy() 
         df_temp['temp_sim_nome'] = df_temp['player.name'].apply(lambda x: fuzz.token_set_ratio(nome, x))
         df_temp['temp_sim_clube'] = df_temp['player.team.name.1'].apply(lambda x: fuzz.token_set_ratio(clube, x))
@@ -193,11 +199,12 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         
         if not melhor_match.empty and melhor_match['temp_sim_combinada'].iloc[0] >= 80:
             atleta_id = melhor_match.index[0]
-            atleta_ref = df.loc[atleta_id] # Usa o DF original para o atleta de referência
+            atleta_ref = df.loc[atleta_id]
             atleta_ref_name = atleta_ref['player.name']
             atleta_ref_club = atleta_ref['player.team.name.1']
             st.success(f"🔍 Atleta de Referência: **{atleta_ref_name}** ({atleta_ref_club}) encontrado.")
-            st.info(f"Posição: {atleta_ref['position']} | Idade: {int(atleta_ref['age'])} | Valor: **${atleta_ref['player.proposedMarketValue']:.2f}M**")
+            # Exibir idade como inteiro
+            st.info(f"Posição: {atleta_ref['position']} | Idade: **{int(atleta_ref['age'])}** | Valor: **${atleta_ref['player.proposedMarketValue'] / 1_000_000:.2f}M**")
             
             if strict_posicao and posicao is None:
                 posicao = [atleta_ref['position']]
@@ -217,7 +224,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if idade_max is not None:
         mascara_filtros &= df['age'] <= idade_max
     
-    # Converter valores de mercado de volta para o formato original para filtragem
     if valor_min is not None:
         mascara_filtros &= df['player.proposedMarketValue'] >= valor_min
     if valor_max is not None:
@@ -254,7 +260,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
             st.info(f"Nenhuma recomendação similar ao atleta **{atleta_ref_name}** encontrada com os filtros aplicados. Tente ajustar os critérios ou o atleta de referência.")
             return pd.DataFrame()
             
-        recomendacoes = df.loc[recomendacoes_finais['original_index']].copy() # Usar .copy() para evitar SettingWithCopyWarning
+        recomendacoes = df.loc[recomendacoes_finais['original_index']].copy()
         recomendacoes['similaridade'] = recomendacoes_finais['similaridade'].values
         
     else:
@@ -262,22 +268,25 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         if len(indices_filtrados) < top_n:
             st.info(f"Apenas {len(indices_filtrados)} atletas encontrados com os filtros, mostrando todos.")
         
-        # Amostrar diretamente do DataFrame filtrado
         recomendacoes = df.loc[indices_filtrados].sample(n=min(top_n, len(indices_filtrados)), random_state=42).copy()
         recomendacoes['similaridade'] = np.nan
     
-    # --- Formatação e Renomeação de Colunas (Corrigido para evitar KeyError) ---
+    # --- Formatação e Renomeação de Colunas para Exibição ---
     
-    # Aplicar formatação ANTES da renomeação para que os valores sejam numéricos na formatação
+    # Formatar Idade para Inteiro
+    if 'age' in recomendacoes.columns:
+        recomendacoes['age'] = recomendacoes['age'].apply(lambda x: int(x) if pd.notna(x) else x)
+
+    # Formatar Valor de Mercado para milhões (M€)
     if 'player.proposedMarketValue' in recomendacoes.columns:
         recomendacoes['player.proposedMarketValue'] = recomendacoes['player.proposedMarketValue'].apply(lambda x: f"${x / 1_000_000:.2f}M")
     
-    # Formata a similaridade apenas se ela for relevante (i.e., atleta_id não é None)
+    # Formatar Similaridade de 0-1 para 0-100
     if atleta_id is not None and 'similaridade' in recomendacoes.columns:
-        recomendacoes['similaridade'] = recomendacoes['similaridade'].apply(lambda x: f"{x:.2f}")
+        recomendacoes['similaridade'] = recomendacoes['similaridade'].apply(lambda x: f"{x * 100:.0f}%") # Multiplica por 100 e arredonda
     
     # Renomear colunas para exibição amigável
-    recomendacoes = recomendacoes.rename(columns={
+    recomendacoes_exibicao = recomendacoes.rename(columns={
         'player.name': 'Nome do Atleta',
         'player.team.name.1': 'Clube',
         'position': 'Posição',
@@ -286,13 +295,13 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         'similaridade': 'Similaridade'
     })
 
-    # Definir cols_display com os nomes JÁ RENOMEADOS
+    # Definir as colunas para exibição principal na tabela
     cols_display_final = ['Nome do Atleta', 'Clube', 'Posição', 'Idade', 'Valor de Mercado']
     if atleta_id is not None:
-        cols_display_final.append('Similaridade') # Adiciona 'Similaridade' (já renomeada)
+        cols_display_final.append('Similaridade')
     
-    # Selecionar e ordenar as colunas usando os nomes renomeados
-    return recomendacoes[cols_display_final].sort_values(by='Similaridade', ascending=False, na_position='last').reset_index(drop=True)
+    # Retornar o DataFrame principal com colunas formatadas e ordenadas
+    return recomendacoes_exibicao[cols_display_final].sort_values(by='Similaridade', ascending=False, na_position='last').reset_index(drop=True), recomendacoes # Retorna também o DF completo para download
 
 # --- Layout da Aplicação Streamlit ---
 
@@ -300,7 +309,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
 st.markdown('<div class="header-section">', unsafe_allow_html=True)
 try:
     st.image("https://github.com/rafacstein/profutstat/raw/main/scouting/profutstat_logo.png", width=100)
-except Exception: # Captura qualquer erro ao carregar a imagem
+except Exception:
     st.warning("Logo não encontrada. Verifique o caminho ou a URL da imagem.")
 st.markdown("<h1>ProFutStat: Scout de Atletas</h1>", unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
@@ -310,7 +319,7 @@ st.markdown("Bem-vindo à ferramenta de **Scout de Atletas ProFutStat**! Utilize
 # Seção de Atleta de Referência e Critérios de Busca
 st.header("Critérios de Busca")
 
-col_ref, col_filters = st.columns([1, 1.5]) # Proporção ajustada
+col_ref, col_filters = st.columns([1, 1.5])
 
 with col_ref:
     st.subheader("Atleta de Referência")
@@ -325,7 +334,7 @@ with col_filters:
     posicao_selecionada = st.multiselect(
         "Posição(ões) Desejada(s)",
         options=posicoes_choices,
-        default=[], # Nenhum padrão selecionado
+        default=[],
         help="Selecione uma ou mais posições. Se um atleta de referência for fornecido, a posição dele será considerada."
     )
 
@@ -335,11 +344,10 @@ with col_filters:
     with col_idade_max:
         idade_max_val = st.number_input("Idade Máxima", min_value=15, max_value=45, value=35, step=1)
 
-    # Convertendo para milhões para o slider, mas usando o valor real internamente para o modelo
-    min_market_value_M = 0.1
-    max_market_value_M = 150.0 # Ajustado para um valor máximo mais realista
-    default_min_M = 1.0
-    default_max_M = 50.0
+    min_market_value_M = 0.01 # Ajustado para permitir valores muito baixos
+    max_market_value_M = 200.0 # Ajustado para um valor máximo realista para o slider
+    default_min_M = 0.5
+    default_max_M = 25.0
 
     valor_min_M, valor_max_M = st.slider(
         "Valor de Mercado Estimado (M€)",
@@ -350,7 +358,6 @@ with col_filters:
         format="€%.1fM",
         help="Faixa de valor de mercado do atleta em milhões de Euros."
     )
-    # Converta os valores do slider de volta para o formato original se precisar para o modelo
     valor_min_val = valor_min_M * 1_000_000
     valor_max_val = valor_max_M * 1_000_000
 
@@ -359,9 +366,10 @@ st.markdown("---")
 # Botão de Recomendação
 if st.button("🔎 Gerar Recomendações", type="primary"):
     with st.spinner("Analisando dados e buscando recomendações..."):
-        recomendacoes = recomendar_atletas_avancado(
-            nome=nome_atleta if nome_atleta else None, # Passa None se a string for vazia
-            clube=clube_atleta if clube_atleta else None, # Passa None se a string for vazia
+        # A função agora retorna dois DataFrames: o de exibição e o completo
+        recomendacoes_display, recomendacoes_completas = recomendar_atletas_avancado(
+            nome=nome_atleta if nome_atleta else None,
+            clube=clube_atleta if clube_atleta else None,
             posicao=posicao_selecionada,
             idade_min=idade_min_val,
             idade_max=idade_max_val,
@@ -370,12 +378,49 @@ if st.button("🔎 Gerar Recomendações", type="primary"):
             top_n=10
         )
         
-        if not recomendacoes.empty:
+        if not recomendacoes_display.empty:
             st.subheader("Resultados da Busca")
-            st.dataframe(recomendacoes, use_container_width=True)
+            st.dataframe(recomendacoes_display, use_container_width=True)
             st.success("Recomendações geradas com sucesso!")
+
+            # --- Seção de Detalhes e Download ---
+            st.markdown("### Detalhes Completos e Download")
+            st.info("Para analisar as estatísticas completas, use a tabela interativa abaixo ou baixe o arquivo.")
+            
+            # Opção de download
+            csv_buffer = io.StringIO()
+            recomendacoes_completas.to_csv(csv_buffer, index=False, encoding='utf-8')
+            csv_bytes = csv_buffer.getvalue().encode('utf-8')
+
+            excel_buffer = io.BytesIO()
+            recomendacoes_completas.to_excel(excel_buffer, index=False, engine='xlsxwriter')
+            excel_buffer.seek(0) # Volta ao início do buffer
+
+            col_download_csv, col_download_excel = st.columns(2)
+            with col_download_csv:
+                st.download_button(
+                    label="⬇️ Download CSV Completo",
+                    data=csv_bytes,
+                    file_name="atletas_recomendados.csv",
+                    mime="text/csv",
+                    help="Baixe as estatísticas completas dos atletas recomendados em formato CSV."
+                )
+            with col_download_excel:
+                st.download_button(
+                    label="⬇️ Download Excel Completo",
+                    data=excel_buffer,
+                    file_name="atletas_recomendados.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    help="Baixe as estatísticas completas dos atletas recomendados em formato Excel."
+                )
+
+            # Expander para ver todas as estatísticas (opcional, pode ser pesado visualmente)
+            with st.expander("Clique para ver todas as estatísticas dos atletas recomendados (tabela grande)"):
+                st.dataframe(recomendacoes_completas, use_container_width=True)
+
+
         else:
             st.warning("Nenhuma recomendação encontrada. Por favor, ajuste os critérios de busca e tente novamente.")
 
 st.markdown("---")
-st.write("Powered by ProFutStat")
+st.write("Desenvolvido com 💚 pela ProFutStat")
