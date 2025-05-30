@@ -132,7 +132,7 @@ def load_data_and_model():
     colunas_numericas = [
         "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
         "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
-        "accurateOwnHalfPasses", "accurateOppositionHalfHalfPasses", "accurateFinalThirdPasses", "keyPasses", # Corrected a typo here: accurateOppositionHalfPasses
+        "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses", # Corrected a typo here: accurateOppositionHalfPasses
         "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
         "directRedCards", "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
         "shotsOffTarget", "groundDuelsWon", "groundDuelsWonPercentage", "aerialDuelsWon", "aerialDuelsWonPercentage",
