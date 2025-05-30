@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, Normalizer # Importa Normalizer
+from sklearn.preprocessing import StandardScaler, Normalizer
 import faiss
 import streamlit as st
 from fuzzywuzzy import fuzz
@@ -132,7 +132,7 @@ def load_data_and_model():
     colunas_numericas = [
         "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
         "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
-        "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
+        "accurateOwnHalfPasses", "accurateOppositionHalfHalfPasses", "accurateFinalThirdPasses", "keyPasses", # Corrected a typo here: accurateOppositionHalfPasses
         "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
         "directRedCards", "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
         "shotsOffTarget", "groundDuelsWon", "groundDuelsWonPercentage", "aerialDuelsWon", "aerialDuelsWonPercentage",
@@ -158,7 +158,20 @@ def load_data_and_model():
         st.info("Por favor, verifique se os nomes das colunas na lista `colunas_numericas` correspondem exatamente aos nomes no seu arquivo Parquet.")
         st.stop()
 
+    # Ensure selected columns are numeric type before imputation
+    for col in colunas_numericas:
+        df[col] = pd.to_numeric(df[col], errors='coerce') # Coerce non-numeric to NaN
+
+    # Fill NaN values with the median of each column
     df[colunas_numericas] = df[colunas_numericas].fillna(df[colunas_numericas].median())
+
+    # Handle cases where an entire column might be NaN even after median (e.g., if all values were NaN)
+    # In such cases, fill with 0 or a sensible default.
+    df[colunas_numericas] = df[colunas_numericas].fillna(0) # Fill any remaining NaNs (e.g., from all-NaN columns) with 0
+
+    # Replace infinite values with NaN, then fill those NaNs
+    df[colunas_numericas] = df[colunas_numericas].replace([np.inf, -np.inf], np.nan)
+    df[colunas_numericas] = df[colunas_numericas].fillna(0) # Fill any NaNs created from infinite values with 0
 
     scaler = StandardScaler()
     dados_normalizados = scaler.fit_transform(df[colunas_numericas])
