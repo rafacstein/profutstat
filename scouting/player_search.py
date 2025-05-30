@@ -211,7 +211,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if nome and clube:
         df_temp = df.copy() 
         df_temp['temp_sim_nome'] = df_temp['player.name'].apply(lambda x: fuzz.token_set_ratio(nome, x))
-        df_temp['temp_sim_clube'] = df_temp['player.team.name.1'].apply(lambda x: fuzz.token_set_ratio(clube, x))
+        df_temp['temp_sim_clube'] = df_temp['player.team.name'].apply(lambda x: fuzz.token_set_ratio(clube, x))
         df_temp['temp_sim_combinada'] = 0.7 * df_temp['temp_sim_nome'] + 0.3 * df_temp['temp_sim_clube']
         
         melhor_match = df_temp.nlargest(1, 'temp_sim_combinada')
@@ -220,7 +220,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
             atleta_id = melhor_match.index[0]
             atleta_ref = df.loc[atleta_id]
             atleta_ref_name = atleta_ref['player.name']
-            atleta_ref_club = atleta_ref['player.team.name.1']
+            atleta_ref_club = atleta_ref['player.team.name']
             st.success(f"🔍 Atleta de Referência: **{atleta_ref_name}** ({atleta_ref_club}) encontrado.")
             st.info(f"Posição: {atleta_ref['position']} | Idade: **{int(atleta_ref['age'])}** | Valor: **${atleta_ref['player.proposedMarketValue'] / 1_000_000:.2f}M**")
             
@@ -310,7 +310,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     # Renomear colunas para exibição amigável
     recomendacoes_exibicao = recomendacoes.rename(columns={
         'player.name': 'Nome do Atleta',
-        'player.team.name.1': 'Clube',
+        'player.team.name': 'Clube',
         'position': 'Posição',
         'age': 'Idade',
         'player.proposedMarketValue': 'Valor de Mercado',
