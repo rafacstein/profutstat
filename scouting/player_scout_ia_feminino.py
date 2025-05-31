@@ -149,7 +149,7 @@ def load_data_and_model():
         "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss", "attemptPenaltyPost", "attemptPenaltyTarget",
         "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards",
         "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",
-        "goalKicks","ballRecovery", "appearances","player.proposedMarketValue", "age", "player.height"
+        "goalKicks","ballRecovery", "appearances", "age", "player.height"
     ]
 
     missing_columns = [col for col in colunas_numericas if col not in df.columns]
@@ -222,7 +222,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
             atleta_ref_name = atleta_ref['player.name']
             atleta_ref_club = atleta_ref['player.team.name']
             st.success(f"🔍 Atleta de Referência: **{atleta_ref_name}** ({atleta_ref_club}) encontrado.")
-            st.info(f"Posição: {atleta_ref['position']} | Idade: **{int(atleta_ref['age'])}** | Valor: **${atleta_ref['player.proposedMarketValue'] / 1_000_000:.2f}M**")
+           
             
             if strict_posicao and posicao is None:
                 posicao = [atleta_ref['position']]
@@ -242,10 +242,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if idade_max is not None:
         mascara_filtros &= df['age'] <= idade_max
     
-    if valor_min is not None:
-        mascara_filtros &= df['player.proposedMarketValue'] >= valor_min
-    if valor_max is not None:
-        mascara_filtros &= df['player.proposedMarketValue'] <= valor_max
     
     indices_filtrados = df[mascara_filtros].index.tolist()
 
@@ -299,9 +295,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     if 'age' in recomendacoes.columns:
         recomendacoes['age'] = recomendacoes['age'].apply(lambda x: int(x) if pd.notna(x) else x)
 
-    # Formatar Valor de Mercado para milhões (M€)
-    if 'player.proposedMarketValue' in recomendacoes.columns:
-        recomendacoes['player.proposedMarketValue'] = recomendacoes['player.proposedMarketValue'].apply(lambda x: f"${x / 1_000_000:.2f}M")
     
     # Formatar Similaridade de 0-1 para 0-100 (Após normalização L2, estará entre 0 e 1)
     if atleta_id is not None and 'similaridade' in recomendacoes.columns:
@@ -313,7 +306,6 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
         'player.team.name': 'Clube',
         'position': 'Posição',
         'age': 'Idade',
-        'player.proposedMarketValue': 'Valor de Mercado',
         'similaridade': 'Similaridade'
     })
 
