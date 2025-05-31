@@ -310,7 +310,7 @@ def recomendar_atletas_avancado(nome=None, clube=None, top_n=10, posicao=None,
     })
 
     # Definir as colunas para exibição principal na tabela
-    cols_display_final = ['Nome do Atleta', 'Clube', 'Posição', 'Idade', 'Valor de Mercado']
+    cols_display_final = ['Nome do Atleta', 'Clube', 'Posição', 'Idade']
     if atleta_id is not None:
         cols_display_final.append('Similaridade')
     
@@ -358,22 +358,6 @@ with col_filters:
     with col_idade_max:
         idade_max_val = st.number_input("Idade Máxima", min_value=15, max_value=45, value=35, step=1)
 
-    min_market_value_M = 0.01
-    max_market_value_M = 200.0
-    default_min_M = 0.5
-    default_max_M = 25.0
-
-    valor_min_M, valor_max_M = st.slider(
-        "Valor de Mercado Estimado (M€)",
-        min_value=min_market_value_M,
-        max_value=max_market_value_M,
-        value=(default_min_M, default_max_M),
-        step=0.1,
-        format="€%.1fM",
-        help="Faixa de valor de mercado do atleta em milhões de Euros."
-    )
-    valor_min_val = valor_min_M * 1_000_000
-    valor_max_val = valor_max_M * 1_000_000
 
 st.markdown("---")
 
