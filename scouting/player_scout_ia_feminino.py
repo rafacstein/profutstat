@@ -370,8 +370,6 @@ if st.button("🔎 Gerar Recomendações", type="primary"):
             posicao=posicao_selecionada,
             idade_min=idade_min_val,
             idade_max=idade_max_val,
-            valor_min=valor_min_val,
-            valor_max=valor_max_val,
             top_n=10
         )
         
