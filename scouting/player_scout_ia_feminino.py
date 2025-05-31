@@ -324,7 +324,7 @@ else:
 # --- Global variable for numeric columns list ---
 # Define `colunas_numericas` globally or pass it
 colunas_numericas = [
-    "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
+    "rating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
     "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
     "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
     "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
@@ -336,14 +336,12 @@ colunas_numericas = [
     "rightFootGoals", "accurateLongBalls", "accurateLongBallsPercentage", "clearances", "errorLeadToGoal",
     "errorLeadToShot", "dispossessed", "possessionLost", "possessionWonAttThird", "totalChippedPasses",
     "accurateChippedPasses", "touches", "wasFouled", "fouls", "hitWoodwork", "ownGoals", "dribbledPast",
-    "offsides", "blockedShots", "passToAssist", "saves", "cleanSheet", "penaltyFaced", "penaltySave",
-    "savedShotsFromInsideTheBox", "savedShotsFromOutsideTheBox", "goalsConcededInsideTheBox",
-    "goalsConcededOutsideTheBox", "punches", "runsOut", "successfulRunsOut", "highClaims", "crossesNotClaimed",
+    "offsides", "blockedShots", "passToAssist", "penaltyFaced",
+    "goalsConcededInsideTheBox",
+    "goalsConcededOutsideTheBox","highClaims", "crossesNotClaimed",
     "matchesStarted", "penaltyConversion", "setPieceConversion", "totalAttemptAssist", "totalContest",
     "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss", "attemptPenaltyPost", "attemptPenaltyTarget",
-    "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards",
-    "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",
-    "goalKicks","ballRecovery", "appearances", "age", "player.height"
+    "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards","totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",,"ballRecovery", "appearances", "age", "player.height"
 ]
 
 @st.cache_resource
