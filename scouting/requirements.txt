@@ -11,3 +11,4 @@ requests
 faiss-cpu
 openpyxl
 xlsxwriter
+plotly-express
