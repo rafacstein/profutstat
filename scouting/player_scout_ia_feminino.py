@@ -245,7 +245,7 @@ st.markdown(
     .dataframe {
         border-radius: 10px;
         overflow: hidden;
-        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     .dataframe th {
         background-color: #e9ecef;
@@ -431,22 +431,30 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         
         raw_recommendations = pd.DataFrame({
             'original_index': returned_indices,
-            'similaridade': similarities
+            'similaridade_raw': similarities # Store raw similarity
         })
         
-        final_recommendations = raw_recommendations[
+        final_recommendations_info = raw_recommendations[
             raw_recommendations['original_index'].isin(filtered_indices) & 
             (raw_recommendations['original_index'] != player_id) # Exclude the reference player themselves
         ]
         
-        final_recommendations = final_recommendations.sort_values(by='similaridade', ascending=False).head(top_n)
+        final_recommendations_info = final_recommendations_info.sort_values(by='similaridade_raw', ascending=False).head(top_n)
         
-        if final_recommendations.empty:
+        if final_recommendations_info.empty:
             st.info(lang_text["no_similar_recommendations_info"].format(player_name=player_ref_name))
             return pd.DataFrame(), pd.DataFrame()
             
-        recommendations = df.loc[final_recommendations['original_index']].copy()
-        recommendations['similaridade'] = final_recommendations['similaridade'].values
+        # Get the full data for recommended players using their original_index
+        # THIS IS THE KEY CHANGE TO ENSURE ALL ORIGINAL STATS ARE PRESENT
+        recommendations = df.loc[final_recommendations_info['original_index']].copy()
+        
+        # Add the 'similaridade_raw' column to the recommendations DataFrame
+        # Merge ensures correct alignment based on index
+        recommendations = recommendations.merge(
+            final_recommendations_info[['original_index', 'similaridade_raw']],
+            left_index=True, right_on='original_index', how='left'
+        ).set_index('original_index') # Set original_index back as index if needed, or keep default
         
     else:
         st.info(lang_text["showing_filtered_athletes_info"])
@@ -455,29 +463,38 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         
         # If no reference player, just show a sample of filtered players
         recommendations = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
-        recommendations['similaridade'] = np.nan # No similarity score when no reference
+        recommendations['similaridade_raw'] = np.nan # No similarity score when no reference
     
     # --- Prepare full DataFrame for download ---
     # Make a copy for download before formatting that changes data types
     recommendations_for_download = recommendations.copy()
 
-    # --- Formatting and Renaming Columns for UI Display ---
+    # --- Formatting and Renaming of Similarity for Display ONLY ---
+    # Apply display formatting only after the full data for download is created.
+    if player_id is not None and 'similaridade_raw' in recommendations.columns:
+        recommendations['similaridade'] = recommendations['similaridade_raw'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%")
+    else:
+        # If no reference player, similarity column is not meaningful for display
+        recommendations['similaridade'] = np.nan # Or drop this column for display
+
+    # --- Remove raw similarity column if it exists and is not needed for display ---
+    if 'similaridade_raw' in recommendations.columns:
+        recommendations = recommendations.drop(columns=['similaridade_raw'])
+
+
+    # --- Formatação e Renomeação de Colunas para Exibição na UI ---
     
-    # Format Age to Integer
+    # Formatar Idade para Inteiro
     if 'age' in recommendations.columns:
         recommendations['age'] = recommendations['age'].apply(lambda x: int(x) if pd.notna(x) else x)
 
-    # Format Similarity from 0-1 to 0-100% (after L2 normalization, it will be between 0 and 1)
-    if player_id is not None and 'similaridade' in recommendations.columns:
-        recommendations['similaridade'] = recommendations['similaridade'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%") # Ensure between 0 and 100
-    
-    # Rename columns for friendly display
+    # Renomear colunas para exibição amigável
     recommendations_display = recommendations.rename(columns={
         'player.name': lang_text['col_player_name'],
         'player.team.name': lang_text['col_club'],
         'position': lang_text['col_position'],
         'age': lang_text['col_age'],
-        'similaridade': lang_text['col_similarity']
+        'similaridade': lang_text['col_similarity'] # Use the formatted similarity column
     })
 
     # Define columns for primary display in the table
@@ -487,7 +504,9 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         cols_display_final.append(lang_text['col_similarity'])
     
     # Return the main DataFrame with formatted and sorted columns, and the full DF for download
+    # Ensure sorting by the DISPLAY similarity, not the raw one
     return recommendations_display[cols_display_final].sort_values(by=lang_text['col_similarity'], ascending=False, na_position='last').reset_index(drop=True), recommendations_for_download
+
 
 # --- Streamlit Application Layout ---
 
@@ -556,11 +575,13 @@ if st.button(current_lang_text["generate_recommendations_button"], type="primary
             
             # Download options
             csv_buffer = io.StringIO()
-            complete_recommendations.to_csv(csv_buffer, index=False, encoding='utf-8')
+            # CHANGE: index=True to include DataFrame index in CSV
+            complete_recommendations.to_csv(csv_buffer, index=True, encoding='utf-8')
             csv_bytes = csv_buffer.getvalue().encode('utf-8')
 
             excel_buffer = io.BytesIO()
-            complete_recommendations.to_excel(excel_buffer, index=False, engine='xlsxwriter')
+            # CHANGE: index=True to include DataFrame index in Excel
+            complete_recommendations.to_excel(excel_buffer, index=True, engine='xlsxwriter')
             excel_buffer.seek(0)
 
             col_download_csv, col_download_excel = st.columns(2)
