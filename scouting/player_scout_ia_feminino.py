@@ -6,7 +6,7 @@ import streamlit as st
 from fuzzywuzzy import fuzz
 import io
 
-# --- Multilingual Text Strings (remain at the top) ---
+# --- Multilingual Text Strings ---
 
 # Portuguese
 TEXT_PT = {
@@ -162,8 +162,6 @@ TEXT_IT = {
 }
 
 # --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
-# We'll default the page title to Portuguese here, as it cannot be dynamic based on
-# user selection made AFTER set_page_config. The rest of the app will respect the language.
 st.set_page_config(
     page_title=TEXT_PT["page_title"], # Default to Portuguese for initial page title
     page_icon="⚽",
@@ -419,9 +417,7 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         st.warning(lang_text["no_athletes_match_filters_warning"])
         return pd.DataFrame(), pd.DataFrame()
     
-    # This DataFrame will hold the final recommendations for display and download
-    recommendations_df = pd.DataFrame() 
-
+    # Get recommendations
     if player_id is not None:
         query_vector = dados_normalizados[df.index.get_loc(player_id)].reshape(1, -1)
         
@@ -431,32 +427,30 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         similarities = D[0]
         returned_indices = I[0]
         
-        # Create a temporary DataFrame for raw similarities and their original indices
-        similarities_temp_df = pd.DataFrame({
+        recommendations_raw = pd.DataFrame({
             'original_index': returned_indices,
-            'similaridade_raw': similarities
+            'similaridade': similarities # Keep the name as 'similaridade' for consistency with male code
         })
         
-        # Filter these similarities based on the pre-filtered indices
-        final_recommendations_info = similarities_temp_df[
-            similarities_temp_df['original_index'].isin(filtered_indices) & 
-            (similarities_temp_df['original_index'] != player_id) # Exclude the reference player themselves
+        final_recommendations = recommendations_raw[
+            recommendations_raw['original_index'].isin(filtered_indices) & 
+            (recommendations_raw['original_index'] != player_id) # Exclude the reference player themselves
         ]
         
-        final_recommendations_info = final_recommendations_info.sort_values(by='similaridade_raw', ascending=False).head(top_n)
+        final_recommendations = final_recommendations.sort_values(by='similaridade', ascending=False).head(top_n)
         
-        if final_recommendations_info.empty:
+        if final_recommendations.empty:
             st.info(lang_text["no_similar_recommendations_info"].format(player_name=player_ref_name))
             return pd.DataFrame(), pd.DataFrame()
             
         # Get the full data for recommended players using their original_index
-        recommendations_df = df.loc[final_recommendations_info['original_index']].copy()
+        # This will preserve all original columns and their types
+        recommendations_df = df.loc[final_recommendations['original_index']].copy()
         
-        # Add the 'similaridade_raw' column to the recommendations_df, aligning by index
-        # Use .set_index() for precise alignment if the DataFrame indices are not naturally aligned
-        recommendations_df = recommendations_df.merge(
-            final_recommendations_info.set_index('original_index'), # Set 'original_index' as index for merging
-            left_index=True, right_index=True, how='left'
+        # Now, map the similarity scores to the correct players in recommendations_df
+        # Using .set_index() and .map() is more robust for alignment
+        recommendations_df['similaridade'] = recommendations_df.index.map(
+            final_recommendations.set_index('original_index')['similaridade']
         )
         
     else:
@@ -466,30 +460,22 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         
         # If no reference player, just show a sample of filtered players
         recommendations_df = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
-        recommendations_df['similaridade_raw'] = np.nan # No similarity score when no reference
+        recommendations_df['similaridade'] = np.nan # No similarity score when no reference
     
-    # --- Prepare full DataFrame for download ---
-    # This DataFrame will contain all original columns + the raw similarity score.
+    # --- Prepare full DataFrame for download (BEFORE any display formatting) ---
     recommendations_for_download = recommendations_df.copy()
 
-    # --- Formatting and Renaming of Similarity for UI Display ONLY ---
-    # Create the 'similaridade' column for display, using the raw similarity
-    if player_id is not None and 'similaridade_raw' in recommendations_df.columns:
-        recommendations_df['similaridade'] = recommendations_df['similaridade_raw'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%")
-    else:
-        # If no reference player, similarity column is not meaningful for display
-        recommendations_df['similaridade'] = np.nan # Or drop this column for display
-    
-    # Drop the raw similarity column from the display DataFrame if it exists
-    if 'similaridade_raw' in recommendations_df.columns:
-        recommendations_df = recommendations_df.drop(columns=['similaridade_raw'])
-
-    # --- Formatação e Renomeação de Colunas para Exibição na UI ---
+    # --- Formatting for UI Display ONLY ---
+    # Apply display formatting only to the DataFrame intended for display
     
     # Formatar Idade para Inteiro
     if 'age' in recommendations_df.columns:
         recommendations_df['age'] = recommendations_df['age'].apply(lambda x: int(x) if pd.notna(x) else x)
 
+    # Formatar Similaridade de 0-1 para 0-100 (Após normalização L2, estará entre 0 e 1)
+    if player_id is not None and 'similaridade' in recommendations_df.columns:
+        recommendations_df['similaridade'] = recommendations_df['similaridade'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%") # Garante entre 0 e 100
+    
     # Renomear colunas para exibição amigável
     recommendations_display = recommendations_df.rename(columns={
         'player.name': lang_text['col_player_name'],
