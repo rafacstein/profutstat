@@ -6,7 +6,7 @@ import streamlit as st
 from fuzzywuzzy import fuzz
 import io
 
-# --- Multilingual Text Strings ---
+# --- Multilingual Text Strings (remain at the top) ---
 
 # Portuguese
 TEXT_PT = {
@@ -161,23 +161,11 @@ TEXT_IT = {
     "col_similarity": "Similarità"
 }
 
-# --- Language Selection ---
-st.sidebar.title("Language / Idioma / Lingua")
-language_option = st.sidebar.selectbox(
-    "",
-    options=["Português", "English", "Italiano"]
-)
-
-if language_option == "Português":
-    current_lang_text = TEXT_PT
-elif language_option == "English":
-    current_lang_text = TEXT_EN
-else:
-    current_lang_text = TEXT_IT
-
-# --- Streamlit Page Configuration ---
+# --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
+# We'll default the page title to Portuguese here, as it cannot be dynamic based on
+# user selection made AFTER set_page_config. The rest of the app will respect the language.
 st.set_page_config(
-    page_title=current_lang_text["page_title"],
+    page_title=TEXT_PT["page_title"], # Default to Portuguese for initial page title
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="auto"
@@ -257,7 +245,7 @@ st.markdown(
     .dataframe {
         border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     .dataframe th {
         background-color: #e9ecef;
@@ -287,15 +275,30 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# --- Language Selection (moved AFTER st.set_page_config) ---
+st.sidebar.title("Language / Idioma / Lingua")
+language_option = st.sidebar.selectbox(
+    "Select Language",
+    options=["Português", "English", "Italiano"]
+)
+
+if language_option == "Português":
+    current_lang_text = TEXT_PT
+elif language_option == "English":
+    current_lang_text = TEXT_EN
+else:
+    current_lang_text = TEXT_IT
+
+
 # --- Data Loading and Model Initialization (Cached for Performance) ---
 
 @st.cache_resource
-def load_data_and_model():
+def load_data_and_model(lang_text): # Pass lang_text to the cached function for error messages
     """Loads data and initializes the scaler and FAISS index."""
     try:
         df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data_feminino.parquet')
     except Exception as e:
-        st.error(current_lang_text["data_load_error"].format(error_message=e))
+        st.error(lang_text["data_load_error"].format(error_message=e))
         st.stop()
 
     colunas_numericas = [
@@ -323,8 +326,8 @@ def load_data_and_model():
 
     missing_columns = [col for col in colunas_numericas if col not in df.columns]
     if missing_columns:
-        st.error(current_lang_text["missing_columns_error"].format(columns=', '.join(missing_columns)))
-        st.info(current_lang_text["check_column_names_info"])
+        st.error(lang_text["missing_columns_error"].format(columns=', '.join(missing_columns)))
+        st.info(lang_text["check_column_names_info"])
         st.stop()
 
     # Ensure selected columns are numeric type before imputation
@@ -357,18 +360,19 @@ def load_data_and_model():
 
     return df, scaler, index, dados_normalizados
 
-df, scaler, faiss_index, dados_normalizados = load_data_and_model()
+# Pass current_lang_text to the cached function
+df, scaler, faiss_index, dados_normalizados = load_data_and_model(current_lang_text)
 
 # --- Recommendation Function Adapted for Streamlit ---
 
 def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
-                                 min_age=None, max_age=None):
+                                 min_age=None, max_age=None, lang_text=TEXT_PT): # Pass lang_text here
     """
     Recommends similar players with multiple filters using FAISS.
     """
     
     if df is None or faiss_index is None:
-        st.error(current_lang_text["data_model_error"])
+        st.error(lang_text["data_model_error"])
         return pd.DataFrame(), pd.DataFrame() # Returns empty DFs for both
 
     player_id = None
@@ -388,16 +392,16 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
             player_ref = df.loc[player_id]
             player_ref_name = player_ref['player.name']
             player_ref_club = player_ref['player.team.name']
-            st.success(current_lang_text["reference_player_found_success"].format(player_name=player_ref_name, club=player_ref_club))
+            st.success(lang_text["reference_player_found_success"].format(player_name=player_ref_name, club=player_ref_club))
             
             # If no position is explicitly selected, use the reference player's position
             if not position: # Check if position list is empty
                 position = [player_ref['position']]
         else:
-            st.warning(current_lang_text["reference_player_not_found_warning"].format(player_name=name, club=club))
+            st.warning(lang_text["reference_player_not_found_warning"].format(player_name=name, club=club))
             player_id = None
     else:
-        st.info(current_lang_text["no_reference_player_info"])
+        st.info(lang_text["no_reference_player_info"])
 
     filter_mask = pd.Series(True, index=df.index)
     
@@ -412,7 +416,7 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
     filtered_indices = df[filter_mask].index.tolist()
 
     if not filtered_indices:
-        st.warning(current_lang_text["no_athletes_match_filters_warning"])
+        st.warning(lang_text["no_athletes_match_filters_warning"])
         return pd.DataFrame(), pd.DataFrame()
     
     # Get recommendations
@@ -438,16 +442,16 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         final_recommendations = final_recommendations.sort_values(by='similaridade', ascending=False).head(top_n)
         
         if final_recommendations.empty:
-            st.info(current_lang_text["no_similar_recommendations_info"].format(player_name=player_ref_name))
+            st.info(lang_text["no_similar_recommendations_info"].format(player_name=player_ref_name))
             return pd.DataFrame(), pd.DataFrame()
             
         recommendations = df.loc[final_recommendations['original_index']].copy()
         recommendations['similaridade'] = final_recommendations['similaridade'].values
         
     else:
-        st.info(current_lang_text["showing_filtered_athletes_info"])
+        st.info(lang_text["showing_filtered_athletes_info"])
         if len(filtered_indices) < top_n:
-            st.info(current_lang_text["only_x_athletes_found_info"].format(count=len(filtered_indices)))
+            st.info(lang_text["only_x_athletes_found_info"].format(count=len(filtered_indices)))
         
         # If no reference player, just show a sample of filtered players
         recommendations = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
@@ -469,21 +473,21 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
     
     # Rename columns for friendly display
     recommendations_display = recommendations.rename(columns={
-        'player.name': current_lang_text['col_player_name'],
-        'player.team.name': current_lang_text['col_club'],
-        'position': current_lang_text['col_position'],
-        'age': current_lang_text['col_age'],
-        'similaridade': current_lang_text['col_similarity']
+        'player.name': lang_text['col_player_name'],
+        'player.team.name': lang_text['col_club'],
+        'position': lang_text['col_position'],
+        'age': lang_text['col_age'],
+        'similaridade': lang_text['col_similarity']
     })
 
     # Define columns for primary display in the table
-    cols_display_final = [current_lang_text['col_player_name'], current_lang_text['col_club'],
-                          current_lang_text['col_position'], current_lang_text['col_age']]
+    cols_display_final = [lang_text['col_player_name'], lang_text['col_club'],
+                          lang_text['col_position'], lang_text['col_age']]
     if player_id is not None:
-        cols_display_final.append(current_lang_text['col_similarity'])
+        cols_display_final.append(lang_text['col_similarity'])
     
     # Return the main DataFrame with formatted and sorted columns, and the full DF for download
-    return recommendations_display[cols_display_final].sort_values(by=current_lang_text['col_similarity'], ascending=False, na_position='last').reset_index(drop=True), recommendations_for_download
+    return recommendations_display[cols_display_final].sort_values(by=lang_text['col_similarity'], ascending=False, na_position='last').reset_index(drop=True), recommendations_for_download
 
 # --- Streamlit Application Layout ---
 
@@ -537,7 +541,8 @@ if st.button(current_lang_text["generate_recommendations_button"], type="primary
             position=selected_position,
             min_age=min_age_val,
             max_age=max_age_val,
-            top_n=10
+            top_n=10,
+            lang_text=current_lang_text # Pass language text to the function
         )
         
         if not recommendations_display.empty:
