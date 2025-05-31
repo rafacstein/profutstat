@@ -1,14 +1,185 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, Normalizer, PowerTransformer # Importar PowerTransformer
+from sklearn.preprocessing import StandardScaler, Normalizer, PowerTransformer
 import faiss
 import streamlit as st
 from fuzzywuzzy import fuzz
 import io
 import plotly.express as px
 
-# --- Multilingual Text Strings (as provided in your script) ---
-# ... (TEXT_PT, TEXT_EN, TEXT_IT definitions) ...
+# --- Multilingual Text Strings ---
+# É CRUCIAL que esses dicionários sejam definidos ANTES de st.set_page_config
+TEXT_PT = {
+    "page_title": "ProFutStat - Scouting de Jogadoras",
+    "header_title": "ProFutStat - Scouting de Jogadoras",
+    "welcome_message": "Use esta ferramenta para encontrar jogadoras com perfis de desempenho semelhantes.",
+    "search_criteria_header": "Critérios de Busca",
+    "reference_player_subheader": "Jogadora de Referência (Opcional)",
+    "reference_player_help": "Insira o nome e o clube de uma jogadora para encontrar atletas com perfil semelhante. Se não informar, o sistema buscará atletas nos filtros selecionados.",
+    "player_name_input": "Nome da Jogadora",
+    "player_name_placeholder": "Ex: Marta Vieira da Silva",
+    "player_club_input": "Clube da Jogadora",
+    "player_club_placeholder": "Ex: Orlando Pride",
+    "profile_filters_subheader": "Filtros de Perfil",
+    "profile_filters_help": "Defina filtros para a busca, mesmo que não informe uma jogadora de referência.",
+    "position_multiselect": "Posição(ões)",
+    "position_help": "Selecione uma ou mais posições para filtrar as jogadoras.",
+    "min_age_input": "Idade Mínima",
+    "max_age_input": "Idade Máxima",
+    "generate_recommendations_button": "Gerar Recomendações",
+    "generating_spinner": "Gerando recomendações, por favor aguarde...",
+    "results_header": "Jogadoras Recomendadas",
+    "recommendations_success": "Recomendações geradas com sucesso!",
+    "details_download_header": "Detalhes e Download",
+    "details_download_info": "Baixe os dados completos das jogadoras recomendadas e suas estatísticas detalhadas.",
+    "download_csv_button": "Baixar como CSV",
+    "download_csv_help": "Baixa a tabela de recomendações em formato CSV.",
+    "download_excel_button": "Baixar como Excel",
+    "download_excel_help": "Baixa a tabela de recomendações em formato XLSX.",
+    "show_all_stats_expander": "Mostrar Todas as Estatísticas",
+    "explain_similarity_header": "Análise Detalhada de Similaridade",
+    "select_player_to_explain": "Selecione uma jogadora recomendada para entender a similaridade:",
+    "comparison_chart_title": "Comparação de Estatísticas entre {player1_name} e {player2_name}",
+    "value_ref_player": "Valor de {player_name} (Processado)",
+    "value_similar_player": "Valor de {player_name} (Processado)",
+    "similarity_factors_header": "Fatores Chave de Similaridade",
+    "most_similar_features": "As 5 estatísticas mais similares entre as jogadoras são:",
+    "least_similar_features": "As 5 estatísticas mais diferentes entre as jogadoras são:",
+    "no_ref_player_for_explanation": "Por favor, selecione uma jogadora de referência para habilitar a explicação detalhada de similaridade.",
+    "data_load_error": "Erro ao carregar os dados: {error_message}. Verifique a URL do arquivo ou a conectividade.",
+    "missing_columns_error": "Colunas esperadas ausentes no arquivo de dados: {columns}.",
+    "check_column_names_info": "Verifique se os nomes das colunas no seu arquivo Parquet correspondem aos nomes esperados no script.",
+    "logo_not_found_warning": "Logo não encontrado, continuando sem ele.",
+    "reference_player_found_success": "Jogadora de referência encontrada: **{player_name}** ({club})",
+    "reference_player_not_found_warning": "Jogadora de referência '{player_name}' do clube '{club}' não encontrada. Buscando apenas por filtros.",
+    "no_reference_player_info": "Nenhuma jogadora de referência informada. As recomendações serão baseadas apenas nos filtros.",
+    "no_athletes_match_filters_warning": "Nenhuma atleta corresponde aos filtros selecionados. Tente ajustar os critérios.",
+    "no_similar_recommendations_info": "Não foram encontradas recomendações similares para **{player_name}** com os filtros aplicados.",
+    "showing_filtered_athletes_info": "Exibindo uma amostra de atletas que correspondem aos seus filtros.",
+    "only_x_athletes_found_info": "Apenas {count} atletas encontradas com os filtros aplicados.",
+    "no_recommendations_warning": "Não foi possível gerar recomendações com os critérios fornecidos. Tente ajustar os filtros ou o nome da jogadora de referência.",
+    "developed_by": "Desenvolvido por RafaCStein",
+    "data_model_error": "Erro: Dados ou modelo não carregados corretamente. Por favor, tente novamente.",
+    "col_player_name": "Nome da Jogadora",
+    "col_club": "Clube",
+    "col_position": "Posição",
+    "col_age": "Idade",
+    "col_similarity": "Similaridade"
+}
+TEXT_EN = {
+    "page_title": "ProFutStat - Player Scouting",
+    "header_title": "ProFutStat - Player Scouting",
+    "welcome_message": "Use this tool to find players with similar performance profiles.",
+    "search_criteria_header": "Search Criteria",
+    "reference_player_subheader": "Reference Player (Optional)",
+    "reference_player_help": "Enter the name and club of a player to find athletes with a similar profile. If not provided, the system will search based on selected filters.",
+    "player_name_input": "Player Name",
+    "player_name_placeholder": "Ex: Marta Vieira da Silva",
+    "player_club_input": "Player's Club",
+    "player_club_placeholder": "Ex: Orlando Pride",
+    "profile_filters_subheader": "Profile Filters",
+    "profile_filters_help": "Define filters for the search, even if you don't provide a reference player.",
+    "position_multiselect": "Position(s)",
+    "position_help": "Select one or more positions to filter players.",
+    "min_age_input": "Minimum Age",
+    "max_age_input": "Maximum Age",
+    "generate_recommendations_button": "Generate Recommendations",
+    "generating_spinner": "Generating recommendations, please wait...",
+    "results_header": "Recommended Players",
+    "recommendations_success": "Recommendations generated successfully!",
+    "details_download_header": "Details and Download",
+    "details_download_info": "Download full data of recommended players and their detailed statistics.",
+    "download_csv_button": "Download as CSV",
+    "download_csv_help": "Downloads the recommendations table in CSV format.",
+    "download_excel_button": "Download as Excel",
+    "download_excel_help": "Downloads the recommendations table in XLSX format.",
+    "show_all_stats_expander": "Show All Statistics",
+    "explain_similarity_header": "Detailed Similarity Analysis",
+    "select_player_to_explain": "Select a recommended player to understand similarity:",
+    "comparison_chart_title": "Statistics Comparison between {player1_name} and {player2_name}",
+    "value_ref_player": "{player_name}'s Value (Processed)",
+    "value_similar_player": "{player_name}'s Value (Processed)",
+    "similarity_factors_header": "Key Similarity Factors",
+    "most_similar_features": "The 5 most similar statistics between the players are:",
+    "least_similar_features": "The 5 most different statistics between the players are:",
+    "no_ref_player_for_explanation": "Please select a reference player to enable detailed similarity explanation.",
+    "data_load_error": "Error loading data: {error_message}. Check the file URL or connectivity.",
+    "missing_columns_error": "Expected columns missing from data file: {columns}.",
+    "check_column_names_info": "Please ensure column names in your Parquet file match the expected names in the script.",
+    "logo_not_found_warning": "Logo not found, continuing without it.",
+    "reference_player_found_success": "Reference player found: **{player_name}** ({club})",
+    "reference_player_not_found_warning": "Reference player '{player_name}' from club '{club}' not found. Searching by filters only.",
+    "no_reference_player_info": "No reference player provided. Recommendations will be based on filters only.",
+    "no_athletes_match_filters_warning": "No athletes match the selected filters. Try adjusting the criteria.",
+    "no_similar_recommendations_info": "No similar recommendations found for **{player_name}** with the applied filters.",
+    "showing_filtered_athletes_info": "Displaying a sample of athletes matching your filters.",
+    "only_x_athletes_found_info": "Only {count} athletes found with the applied filters.",
+    "no_recommendations_warning": "Could not generate recommendations with the provided criteria. Try adjusting filters or the reference player's name.",
+    "developed_by": "Developed by RafaCStein",
+    "data_model_error": "Error: Data or model not loaded correctly. Please try again.",
+    "col_player_name": "Player Name",
+    "col_club": "Club",
+    "col_position": "Position",
+    "col_age": "Age",
+    "col_similarity": "Similarity"
+}
+TEXT_IT = {
+    "page_title": "ProFutStat - Scouting Giocatrici",
+    "header_title": "ProFutStat - Scouting Giocatrici",
+    "welcome_message": "Usa questo strumento per trovare giocatrici con profili di prestazione simili.",
+    "search_criteria_header": "Criteri di Ricerca",
+    "reference_player_subheader": "Giocatrice di Riferimento (Opzionale)",
+    "reference_player_help": "Inserisci il nome e il club di una giocatrice per trovare atlete con un profilo simile. Se non fornito, il sistema cercherà in base ai filtri selezionati.",
+    "player_name_input": "Nome Giocatrice",
+    "player_name_placeholder": "Es: Marta Vieira da Silva",
+    "player_club_input": "Club della Giocatrice",
+    "player_club_placeholder": "Es: Orlando Pride",
+    "profile_filters_subheader": "Filtri Profilo",
+    "profile_filters_help": "Definisci i filtri per la ricerca, anche se non fornisci una giocatrice di riferimento.",
+    "position_multiselect": "Posizione(i)",
+    "position_help": "Seleziona una o più posizioni per filtrare le giocatrici.",
+    "min_age_input": "Età Minima",
+    "max_age_input": "Età Massima",
+    "generate_recommendations_button": "Genera Raccomandazioni",
+    "generating_spinner": "Generazione raccomandazioni, attendere prego...",
+    "results_header": "Giocatrici Raccomandate",
+    "recommendations_success": "Raccomandazioni generate con successo!",
+    "details_download_header": "Dettagli e Download",
+    "details_download_info": "Scarica i dati completi delle giocatrici raccomandate e le loro statistiche dettagliate.",
+    "download_csv_button": "Scarica come CSV",
+    "download_csv_help": "Scarica la tabella delle raccomandazioni in formato CSV.",
+    "download_excel_button": "Scarica come Excel",
+    "download_excel_help": "Scarica la tabella delle raccomandazioni in formato XLSX.",
+    "show_all_stats_expander": "Mostra Tutte le Statistiche",
+    "explain_similarity_header": "Analisi Dettagliata della Similarità",
+    "select_player_to_explain": "Seleziona una giocatrice raccomandata per capire la similarità:",
+    "comparison_chart_title": "Confronto Statistiche tra {player1_name} e {player2_name}",
+    "value_ref_player": "Valore di {player_name} (Elaborato)",
+    "value_similar_player": "Valore di {player_name} (Elaborato)",
+    "similarity_factors_header": "Fattori Chiave di Similarità",
+    "most_similar_features": "Le 5 statistiche più simili tra le giocatrici sono:",
+    "least_similar_features": "Le 5 statistiche più diverse tra le giocatrici sono:",
+    "no_ref_player_for_explanation": "Seleziona una giocatrice di riferimento per abilitare la spiegazione dettagliata della similarità.",
+    "data_load_error": "Erro nel caricamento dei dati: {error_message}. Controlla l'URL del file o la connettività.",
+    "missing_columns_error": "Colonne attese mancanti nel file di dati: {columns}.",
+    "check_column_names_info": "Verifica che i nomi delle colonne nel tuo file Parquet corrispondano ai nomi attesi nello script.",
+    "logo_not_found_warning": "Logo non trovato, continuo senza di esso.",
+    "reference_player_found_success": "Giocatrice di riferimento trovata: **{player_name}** ({club})",
+    "reference_player_not_found_warning": "Giocatrice di riferimento '{player_name}' del club '{club}' non trovata. Ricerca solo per filtri.",
+    "no_reference_player_info": "Nessuna giocatrice di riferimento fornita. Le raccomandazioni saranno basate solo sui filtri.",
+    "no_athletes_match_filters_warning": "Nessuna atleta corrisponde ai filtri selezionati. Prova a regolare i criteri.",
+    "no_similar_recommendations_info": "Nessuna raccomandazione simile trovata per **{player_name}** con i filtri applicati.",
+    "showing_filtered_athletes_info": "Visualizzazione di un campione di atlete che corrispondono ai tuoi filtri.",
+    "only_x_athletes_found_info": "Solo {count} atlete trovate con i filtri applicati.",
+    "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri o il nome della giocatrice di riferimento.",
+    "developed_by": "Sviluppato da RafaCStein",
+    "data_model_error": "Errore: Dati o modello non caricati correttamente. Per favore, riprova.",
+    "col_player_name": "Nome Giocatrice",
+    "col_club": "Club",
+    "col_position": "Posizione",
+    "col_age": "Età",
+    "col_similarity": "Similarità"
+}
 
 # --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
 st.set_page_config(
@@ -18,8 +189,57 @@ st.set_page_config(
     initial_sidebar_state="auto"
 )
 
-# --- Custom CSS for Professional Styling (as provided in your script) ---
-# ... (st.markdown for CSS) ...
+# --- Custom CSS for Professional Styling ---
+st.markdown("""
+<style>
+    .reportview-container {
+        background: #F0F2F6;
+    }
+    .sidebar .sidebar-content {
+        background: #FFFFFF;
+        padding-top: 2rem;
+    }
+    .css-1d391kg { /* Main app container */
+        padding: 1rem 3rem 1rem;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        color: #0E1117;
+        font-family: 'Montserrat', sans-serif;
+    }
+    .header-section {
+        display: flex;
+        align-items: center;
+        gap: 20px; /* Space between logo and title */
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #ccc;
+    }
+    .stButton>button {
+        background-color: #4CAF50; /* Green */
+        color: white;
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 8px;
+        border: none;
+        transition: background-color 0.3s ease;
+    }
+    .stButton>button:hover {
+        background-color: #45a049;
+    }
+    .stSelectbox, .stTextInput, .stNumberInput, .stMultiSelect {
+        margin-bottom: 15px;
+    }
+    .stAlert {
+        border-radius: 8px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # --- Language Selection (moved AFTER st.set_page_config) ---
 st.sidebar.title("Language / Idioma / Lingua")
@@ -36,7 +256,6 @@ else:
     current_lang_text = TEXT_IT
 
 # --- Global variable for numeric columns list ---
-# Define `colunas_numericas_originais` (as provided in your script)
 colunas_numericas_originais = [
     "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
     "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
@@ -114,7 +333,7 @@ def load_data_and_model(lang_text, original_numeric_cols):
         "goalsConcededOutsideTheBox", "punches", "runsOut", "successfulRunsOut", "highClaims", "crossesNotClaimed",
         "totalAttemptAssist", "totalContest", "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss",
         "attemptPenaltyPost", "attemptPenaltyTarget", "totalLongBalls", "goalsConceded", "tacklesWon",
-        "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfHalfPasses", "expectedGoals",
+        "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "expectedGoals",
         "goalKicks", "ballRecovery"
     ]
 
@@ -348,9 +567,6 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
     # However, for business users, comparing original values is more intuitive.
     # We'll calculate contribution based on the features *before* the final L2 normalization,
     # but after StandardScaler (or PowerTransformer + StandardScaler)
-    
-    # Get the vectors that were scaled by StandardScaler (or PowerTransformer + StandardScaler)
-    # This requires running the transformation pipeline again for these two specific players
     
     # Ensure transformer_used is available in session state if it was stored
     transformer = st.session_state.get('transformer_used', None)
