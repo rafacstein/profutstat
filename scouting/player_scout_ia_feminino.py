@@ -148,9 +148,9 @@ TEXT_IT = {
     "no_similar_recommendations_info": "Nessuna raccomandazione simile all'atleta **{player_name}** trovata con i filtri applicati. Prova a regolare i criteri o l'atleta di riferimento.",
     "showing_filtered_athletes_info": "Mostrando atleti che soddisfano i filtri. Per raccomandazioni per similarità, fornisci un atleta di riferimento.",
     "only_x_athletes_found_info": "Solo {count} atleti trovati con i filtri, mostrando tutti.",
-    "missing_columns_error": "Errore: Le seguenti colonne numeriche essenziali non sono state trovate nel file di dati: **{columns}**",
+    "missing_columns_error": "Errore: Le seguenti colunas numéricas essenciais não foram encontradas no arquivo de dados: **{columns}**",
     "check_column_names_info": "Si prega di assicurarsi che i nomi delle colonne nell'elenco `colunas_numericas` corrispondano esattamente ai nomi nel file Parquet.",
-    "data_load_error": "Errore durante il caricamento del file di dati. Si prega di controllare il link o la connessione: {error_message}",
+    "data_load_error": "Erro durante il caricamento del file di dati. Si prega di controllare il link o la connessione: {error_message}",
     "logo_not_found_warning": "Logo non trovato. Controlla il percorso o l'URL dell'immagine.",
     "developed_by": "Sviluppato in Brasile da ProFutStat",
     # Column names for display
@@ -419,7 +419,9 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         st.warning(lang_text["no_athletes_match_filters_warning"])
         return pd.DataFrame(), pd.DataFrame()
     
-    # Get recommendations
+    # This DataFrame will hold the final recommendations for display and download
+    recommendations_df = pd.DataFrame() 
+
     if player_id is not None:
         query_vector = dados_normalizados[df.index.get_loc(player_id)].reshape(1, -1)
         
@@ -429,14 +431,16 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         similarities = D[0]
         returned_indices = I[0]
         
-        raw_recommendations = pd.DataFrame({
+        # Create a temporary DataFrame for raw similarities and their original indices
+        similarities_temp_df = pd.DataFrame({
             'original_index': returned_indices,
-            'similaridade_raw': similarities # Store raw similarity
+            'similaridade_raw': similarities
         })
         
-        final_recommendations_info = raw_recommendations[
-            raw_recommendations['original_index'].isin(filtered_indices) & 
-            (raw_recommendations['original_index'] != player_id) # Exclude the reference player themselves
+        # Filter these similarities based on the pre-filtered indices
+        final_recommendations_info = similarities_temp_df[
+            similarities_temp_df['original_index'].isin(filtered_indices) & 
+            (similarities_temp_df['original_index'] != player_id) # Exclude the reference player themselves
         ]
         
         final_recommendations_info = final_recommendations_info.sort_values(by='similaridade_raw', ascending=False).head(top_n)
@@ -446,15 +450,14 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
             return pd.DataFrame(), pd.DataFrame()
             
         # Get the full data for recommended players using their original_index
-        # THIS IS THE KEY CHANGE TO ENSURE ALL ORIGINAL STATS ARE PRESENT
-        recommendations = df.loc[final_recommendations_info['original_index']].copy()
+        recommendations_df = df.loc[final_recommendations_info['original_index']].copy()
         
-        # Add the 'similaridade_raw' column to the recommendations DataFrame
-        # Merge ensures correct alignment based on index
-        recommendations = recommendations.merge(
-            final_recommendations_info[['original_index', 'similaridade_raw']],
-            left_index=True, right_on='original_index', how='left'
-        ).set_index('original_index') # Set original_index back as index if needed, or keep default
+        # Add the 'similaridade_raw' column to the recommendations_df, aligning by index
+        # Use .set_index() for precise alignment if the DataFrame indices are not naturally aligned
+        recommendations_df = recommendations_df.merge(
+            final_recommendations_info.set_index('original_index'), # Set 'original_index' as index for merging
+            left_index=True, right_index=True, how='left'
+        )
         
     else:
         st.info(lang_text["showing_filtered_athletes_info"])
@@ -462,34 +465,33 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
             st.info(lang_text["only_x_athletes_found_info"].format(count=len(filtered_indices)))
         
         # If no reference player, just show a sample of filtered players
-        recommendations = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
-        recommendations['similaridade_raw'] = np.nan # No similarity score when no reference
+        recommendations_df = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
+        recommendations_df['similaridade_raw'] = np.nan # No similarity score when no reference
     
     # --- Prepare full DataFrame for download ---
-    # Make a copy for download before formatting that changes data types
-    recommendations_for_download = recommendations.copy()
+    # This DataFrame will contain all original columns + the raw similarity score.
+    recommendations_for_download = recommendations_df.copy()
 
-    # --- Formatting and Renaming of Similarity for Display ONLY ---
-    # Apply display formatting only after the full data for download is created.
-    if player_id is not None and 'similaridade_raw' in recommendations.columns:
-        recommendations['similaridade'] = recommendations['similaridade_raw'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%")
+    # --- Formatting and Renaming of Similarity for UI Display ONLY ---
+    # Create the 'similaridade' column for display, using the raw similarity
+    if player_id is not None and 'similaridade_raw' in recommendations_df.columns:
+        recommendations_df['similaridade'] = recommendations_df['similaridade_raw'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%")
     else:
         # If no reference player, similarity column is not meaningful for display
-        recommendations['similaridade'] = np.nan # Or drop this column for display
-
-    # --- Remove raw similarity column if it exists and is not needed for display ---
-    if 'similaridade_raw' in recommendations.columns:
-        recommendations = recommendations.drop(columns=['similaridade_raw'])
-
+        recommendations_df['similaridade'] = np.nan # Or drop this column for display
+    
+    # Drop the raw similarity column from the display DataFrame if it exists
+    if 'similaridade_raw' in recommendations_df.columns:
+        recommendations_df = recommendations_df.drop(columns=['similaridade_raw'])
 
     # --- Formatação e Renomeação de Colunas para Exibição na UI ---
     
     # Formatar Idade para Inteiro
-    if 'age' in recommendations.columns:
-        recommendations['age'] = recommendations['age'].apply(lambda x: int(x) if pd.notna(x) else x)
+    if 'age' in recommendations_df.columns:
+        recommendations_df['age'] = recommendations_df['age'].apply(lambda x: int(x) if pd.notna(x) else x)
 
     # Renomear colunas para exibição amigável
-    recommendations_display = recommendations.rename(columns={
+    recommendations_display = recommendations_df.rename(columns={
         'player.name': lang_text['col_player_name'],
         'player.team.name': lang_text['col_club'],
         'position': lang_text['col_position'],
