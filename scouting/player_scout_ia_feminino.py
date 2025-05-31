@@ -6,7 +6,7 @@ import streamlit as st
 from fuzzywuzzy import fuzz
 import io
 
-# --- Multilingual Text Strings ---
+# --- Multilingual Text Strings (remain at the top) ---
 
 # Portuguese
 TEXT_PT = {
@@ -148,9 +148,9 @@ TEXT_IT = {
     "no_similar_recommendations_info": "Nessuna raccomandazione simile all'atleta **{player_name}** trovata con i filtri applicati. Prova a regolare i criteri o l'atleta di riferimento.",
     "showing_filtered_athletes_info": "Mostrando atleti che soddisfano i filtri. Per raccomandazioni per similarità, fornisci un atleta di riferimento.",
     "only_x_athletes_found_info": "Solo {count} atleti trovati con i filtri, mostrando tutti.",
-    "missing_columns_error": "Errore: Le seguenti colunas numéricas essenciais não foram encontradas no arquivo de dados: **{columns}**",
+    "missing_columns_error": "Errore: Le seguenti colonne numeriche essenziali non sono state trovate nel file di dati: **{columns}**",
     "check_column_names_info": "Si prega di assicurarsi che i nomi delle colonne nell'elenco `colunas_numericas` corrispondano esattamente ai nomi nel file Parquet.",
-    "data_load_error": "Erro durante il caricamento del file di dati. Si prega di controllare il link o la connessione: {error_message}",
+    "data_load_error": "Errore durante il caricamento del file di dati. Si prega di controllare il link o la connessione: {error_message}",
     "logo_not_found_warning": "Logo non trovato. Controlla il percorso o l'URL dell'immagine.",
     "developed_by": "Sviluppato in Brasile da ProFutStat",
     # Column names for display
@@ -162,6 +162,8 @@ TEXT_IT = {
 }
 
 # --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
+# We'll default the page title to Portuguese here, as it cannot be dynamic based on
+# user selection made AFTER set_page_config. The rest of the app will respect the language.
 st.set_page_config(
     page_title=TEXT_PT["page_title"], # Default to Portuguese for initial page title
     page_icon="⚽",
@@ -243,7 +245,7 @@ st.markdown(
     .dataframe {
         border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        box_shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
     .dataframe th {
         background-color: #e9ecef;
@@ -427,14 +429,14 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         similarities = D[0]
         returned_indices = I[0]
         
-        recommendations_raw = pd.DataFrame({
+        raw_recommendations = pd.DataFrame({
             'original_index': returned_indices,
-            'similaridade': similarities # Keep the name as 'similaridade' for consistency with male code
+            'similaridade': similarities
         })
         
-        final_recommendations = recommendations_raw[
-            recommendations_raw['original_index'].isin(filtered_indices) & 
-            (recommendations_raw['original_index'] != player_id) # Exclude the reference player themselves
+        final_recommendations = raw_recommendations[
+            raw_recommendations['original_index'].isin(filtered_indices) & 
+            (raw_recommendations['original_index'] != player_id) # Exclude the reference player themselves
         ]
         
         final_recommendations = final_recommendations.sort_values(by='similaridade', ascending=False).head(top_n)
@@ -443,15 +445,8 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
             st.info(lang_text["no_similar_recommendations_info"].format(player_name=player_ref_name))
             return pd.DataFrame(), pd.DataFrame()
             
-        # Get the full data for recommended players using their original_index
-        # This will preserve all original columns and their types
-        recommendations_df = df.loc[final_recommendations['original_index']].copy()
-        
-        # Now, map the similarity scores to the correct players in recommendations_df
-        # Using .set_index() and .map() is more robust for alignment
-        recommendations_df['similaridade'] = recommendations_df.index.map(
-            final_recommendations.set_index('original_index')['similaridade']
-        )
+        recommendations = df.loc[final_recommendations['original_index']].copy()
+        recommendations['similaridade'] = final_recommendations['similaridade'].values
         
     else:
         st.info(lang_text["showing_filtered_athletes_info"])
@@ -459,30 +454,30 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
             st.info(lang_text["only_x_athletes_found_info"].format(count=len(filtered_indices)))
         
         # If no reference player, just show a sample of filtered players
-        recommendations_df = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
-        recommendations_df['similaridade'] = np.nan # No similarity score when no reference
+        recommendations = df.loc[filtered_indices].sample(n=min(top_n, len(filtered_indices)), random_state=42).copy()
+        recommendations['similaridade'] = np.nan # No similarity score when no reference
     
-    # --- Prepare full DataFrame for download (BEFORE any display formatting) ---
-    recommendations_for_download = recommendations_df.copy()
+    # --- Prepare full DataFrame for download ---
+    # Make a copy for download before formatting that changes data types
+    recommendations_for_download = recommendations.copy()
 
-    # --- Formatting for UI Display ONLY ---
-    # Apply display formatting only to the DataFrame intended for display
+    # --- Formatting and Renaming Columns for UI Display ---
     
-    # Formatar Idade para Inteiro
-    if 'age' in recommendations_df.columns:
-        recommendations_df['age'] = recommendations_df['age'].apply(lambda x: int(x) if pd.notna(x) else x)
+    # Format Age to Integer
+    if 'age' in recommendations.columns:
+        recommendations['age'] = recommendations['age'].apply(lambda x: int(x) if pd.notna(x) else x)
 
-    # Formatar Similaridade de 0-1 para 0-100 (Após normalização L2, estará entre 0 e 1)
-    if player_id is not None and 'similaridade' in recommendations_df.columns:
-        recommendations_df['similaridade'] = recommendations_df['similaridade'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%") # Garante entre 0 e 100
+    # Format Similarity from 0-1 to 0-100% (after L2 normalization, it will be between 0 and 1)
+    if player_id is not None and 'similaridade' in recommendations.columns:
+        recommendations['similaridade'] = recommendations['similaridade'].apply(lambda x: f"{max(0, min(100, x * 100)):.0f}%") # Ensure between 0 and 100
     
-    # Renomear colunas para exibição amigável
-    recommendations_display = recommendations_df.rename(columns={
+    # Rename columns for friendly display
+    recommendations_display = recommendations.rename(columns={
         'player.name': lang_text['col_player_name'],
         'player.team.name': lang_text['col_club'],
         'position': lang_text['col_position'],
         'age': lang_text['col_age'],
-        'similaridade': lang_text['col_similarity'] # Use the formatted similarity column
+        'similaridade': lang_text['col_similarity']
     })
 
     # Define columns for primary display in the table
@@ -492,9 +487,7 @@ def recommend_players_advanced(name=None, club=None, top_n=10, position=None,
         cols_display_final.append(lang_text['col_similarity'])
     
     # Return the main DataFrame with formatted and sorted columns, and the full DF for download
-    # Ensure sorting by the DISPLAY similarity, not the raw one
     return recommendations_display[cols_display_final].sort_values(by=lang_text['col_similarity'], ascending=False, na_position='last').reset_index(drop=True), recommendations_for_download
-
 
 # --- Streamlit Application Layout ---
 
@@ -563,13 +556,11 @@ if st.button(current_lang_text["generate_recommendations_button"], type="primary
             
             # Download options
             csv_buffer = io.StringIO()
-            # CHANGE: index=True to include DataFrame index in CSV
-            complete_recommendations.to_csv(csv_buffer, index=True, encoding='utf-8')
+            complete_recommendations.to_csv(csv_buffer, index=False, encoding='utf-8')
             csv_bytes = csv_buffer.getvalue().encode('utf-8')
 
             excel_buffer = io.BytesIO()
-            # CHANGE: index=True to include DataFrame index in Excel
-            complete_recommendations.to_excel(excel_buffer, index=True, engine='xlsxwriter')
+            complete_recommendations.to_excel(excel_buffer, index=False, engine='xlsxwriter')
             excel_buffer.seek(0)
 
             col_download_csv, col_download_excel = st.columns(2)
