@@ -341,7 +341,7 @@ colunas_numericas = [
     "goalsConcededOutsideTheBox","highClaims", "crossesNotClaimed",
     "matchesStarted", "penaltyConversion", "setPieceConversion", "totalAttemptAssist", "totalContest",
     "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss", "attemptPenaltyPost", "attemptPenaltyTarget",
-    "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards","totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",,"ballRecovery", "appearances", "age", "player.height"
+    "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards","totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals","ballRecovery", "appearances", "age", "player.height"
 ]
 
 @st.cache_resource
