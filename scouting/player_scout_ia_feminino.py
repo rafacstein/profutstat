@@ -64,7 +64,9 @@ TEXT_PT = {
     "col_club": "Clube",
     "col_position": "Posição",
     "col_age": "Idade",
-    "col_similarity": "Similaridade"
+    "col_similarity": "Similaridade",
+    "bar_chart_title_specific_metrics": "Comparação de Métricas Chave (Valores Originais)",
+    "bar_chart_title_contributions": "Contribuição das Estatísticas (Diferença Quadrática) para a Similaridade entre {player1_name} e {player2_name}",
 }
 TEXT_EN = {
     "page_title": "ProFutStat - Player Scouting",
@@ -121,7 +123,9 @@ TEXT_EN = {
     "col_club": "Club",
     "col_position": "Position",
     "col_age": "Age",
-    "col_similarity": "Similarity"
+    "col_similarity": "Similarity",
+    "bar_chart_title_specific_metrics": "Comparison of Key Metrics (Original Values)",
+    "bar_chart_title_contributions": "Contribution of Statistics (Squared Difference) to Similarity between {player1_name} and {player2_name}",
 }
 TEXT_IT = {
     "page_title": "ProFutStat - Scouting Giocatrici",
@@ -173,12 +177,14 @@ TEXT_IT = {
     "only_x_athletes_found_info": "Solo {count} atlete trovate con i filtri applicati.",
     "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri o il nome della giocatrice di riferimento.",
     "developed_by": "Sviluppato da RafaCStein",
-    "data_model_error": "Errore: Dati o modello non caricati correttamente. Per favore, riprova.",
+    "data_model_error": "Erro: Dati o modello non caricati correttamente. Per favore, riprova.",
     "col_player_name": "Nome Giocatrice",
     "col_club": "Club",
     "col_position": "Posizione",
     "col_age": "Età",
-    "col_similarity": "Similarità"
+    "col_similarity": "Similarità",
+    "bar_chart_title_specific_metrics": "Confronto Metriche Chiave (Valori Originali)",
+    "bar_chart_title_contributions": "Contributo delle Statistiche (Differenza Quadratica) alla Similarità tra {player1_name} e {player2_name}",
 }
 
 # --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
@@ -538,35 +544,72 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
 
     st.subheader(lang_text["comparison_chart_title"].format(player1_name=ref_player_name, player2_name=similar_player_name))
 
-    # --- Radar Chart using processed (p90 and transformed) values for conceptual comparison ---
-    # Retrieve the processed (p90/transformed) data for the radar chart
-    ref_player_data_model = df_processed_data.loc[ref_player_id]
-    similar_player_data_model = df_processed_data.loc[selected_similar_player_original_index]
+    # --- Metrics for specific bar chart comparison (using original values) ---
+    # These are the *original* column names from the parquet file
+    # For _p90 features, ensure you reference the original base name here
+    metrics_to_compare_original = [
+        "accuratePassesPercentage", # Já é porcentagem
+        "groundDuelsWon",
+        "aerialDuelsWon",
+        "minutesPlayed",
+        "goals",
+        "assists",
+        "tackles",
+        "ballRecovery"
+    ]
 
-    # Select only the features actually used in the model
-    radar_df_comparison_model = pd.DataFrame({
-        'Estatística': numeric_features_for_model,
-        lang_text["value_ref_player"].format(player_name=ref_player_name): ref_player_data_model[numeric_features_for_model].values,
-        lang_text["value_similar_player"].format(player_name=similar_player_name): similar_player_data_model[numeric_features_for_model].values
-    })
+    # Create a DataFrame for the bar chart
+    bar_chart_data = []
+    for metric in metrics_to_compare_original:
+        # Check if the original column exists, otherwise try the _p90 version
+        ref_val = ref_player_data_original.get(metric)
+        sim_val = similar_player_data_original.get(metric)
 
-    radar_melted_df_model = radar_df_comparison_model.melt(id_vars=['Estatística'], var_name='Jogador', value_name='Valor')
+        # If not found, try to use the _p90 version from df_processed_data for display
+        # This handles cases where only the p90 version is truly meaningful in the model context
+        if ref_val is None or sim_val is None:
+            p90_metric = f"{metric}_p90"
+            if p90_metric in df_processed_data.columns:
+                 ref_val = df_processed_data.loc[ref_player_id, p90_metric]
+                 sim_val = df_processed_data.loc[selected_similar_player_original_index, p90_metric]
+                 metric_display_name = f"{metric} (p90)" # Indicate it's p90 for clarity
+            else:
+                continue # Skip if neither original nor p90 is found
+        else:
+            metric_display_name = metric # Use original name if available
 
-    fig_radar_model = px.line_polar(radar_melted_df_model, r='Valor', theta='Estatística', line_close=True,
-                                    color='Jogador', markers=True,
-                                    title=f'Comparação de Perfis de Estatísticas (Normalizadas/Processadas)')
-    st.plotly_chart(fig_radar_model, use_container_width=True)
+        bar_chart_data.append({
+            'Métrica': metric_display_name,
+            'Jogador': ref_player_name,
+            'Valor': ref_val
+        })
+        bar_chart_data.append({
+            'Métrica': metric_display_name,
+            'Jogador': similar_player_name,
+            'Valor': sim_val
+        })
+
+    df_bar_chart = pd.DataFrame(bar_chart_data)
+
+    # Create the bar chart
+    if not df_bar_chart.empty:
+        fig_bar_specific = px.bar(
+            df_bar_chart,
+            x='Métrica',
+            y='Valor',
+            color='Jogador',
+            barmode='group',
+            title=lang_text["bar_chart_title_specific_metrics"]
+        )
+        st.plotly_chart(fig_bar_specific, use_container_width=True)
+    else:
+        st.warning("Não foi possível gerar o gráfico de comparação de métricas chave. Verifique se as colunas existem.")
+
 
     st.subheader(lang_text["similarity_factors_header"])
 
-    # --- Explanation using ORIGINAL values for direct comparison ---
-    # This is critical for professionals to understand the "raw" differences
-    
-    # For cosine similarity, looking at the absolute difference of the *scaled* features
-    # that went into FAISS is more direct for "contribution".
-    # However, for business users, comparing original values is more intuitive.
-    # We'll calculate contribution based on the features *before* the final L2 normalization,
-    # but after StandardScaler (or PowerTransformer + StandardScaler)
+    # Get the vectors that were scaled by StandardScaler (or PowerTransformer + StandardScaler)
+    # This requires running the transformation pipeline again for these two specific players
     
     # Ensure transformer_used is available in session state if it was stored
     transformer = st.session_state.get('transformer_used', None)
@@ -575,6 +618,7 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
         return
 
     # Transform original data for these two players using the stored transformer (PowerTransformer/StandardScaler)
+    # Ensure inputs to transform are only the numeric features used for the model
     ref_vector_pre_normalizer = transformer.transform(ref_player_data_original[numeric_features_for_model].values.reshape(1, -1))
     ref_vector_pre_normalizer = scaler_model.transform(ref_vector_pre_normalizer)[0] # Apply StandardScaler
 
@@ -616,7 +660,7 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
     fig_bar_diff_scaled = px.bar(
         x=sorted_contributions_scaled.index,
         y=sorted_contributions_scaled.values,
-        title=f'Contribuição das Estatísticas (Diferença Quadrática) para a Similaridade entre {ref_player_name} e {similar_player_name}',
+        title=lang_text["bar_chart_title_contributions"].format(player1_name=ref_player_name, player2_name=similar_player_name),
         labels={'x': 'Estatística', 'y': 'Diferença Quadrática (Processado)'},
         color=sorted_contributions_scaled.values,
         color_continuous_scale=px.colors.sequential.Plasma_r # Invert color scale for better viz
