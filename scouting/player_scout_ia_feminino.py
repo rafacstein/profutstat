@@ -260,7 +260,7 @@ else:
 
 # --- Global variable for numeric columns list ---
 colunas_numericas_originais = [
-    "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
+    "rating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
     "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
     "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses",
     "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
@@ -272,13 +272,11 @@ colunas_numericas_originais = [
     "rightFootGoals", "accurateLongBalls", "accurateLongBallsPercentage", "clearances", "errorLeadToGoal",
     "errorLeadToShot", "dispossessed", "possessionLost", "possessionWonAttThird", "totalChippedPasses",
     "accurateChippedPasses", "touches", "wasFouled", "fouls", "hitWoodwork", "ownGoals", "dribbledPast",
-    "offsides", "blockedShots", "passToAssist", "saves", "cleanSheet", "penaltyFaced", "penaltySave",
-    "savedShotsFromInsideTheBox", "savedShotsFromOutsideTheBox", "goalsConcededInsideTheBox",
-    "goalsConcededOutsideTheBox", "punches", "runsOut", "successfulRunsOut", "highClaims", "crossesNotClaimed",
-    "matchesStarted", "penaltyConversion", "setPieceConversion", "totalAttemptAssist", "totalContest",
+    "offsides", "blockedShots", "passToAssist", "saves", "cleanSheet", "matchesStarted", "penaltyConversion", 
+    "setPieceConversion", "totalAttemptAssist", "totalContest",
     "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss", "attemptPenaltyPost", "attemptPenaltyTarget",
     "totalLongBalls", "goalsConceded", "tacklesWon", "tacklesWonPercentage", "scoringFrequency", "yellowRedCards",
-    "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",
+    "totalOwnHalfPasses", "totalOppositionHalfPasses", "totwAppearances", "expectedGoals",
     "goalKicks","ballRecovery", "appearances", "age", "player.height"
 ]
 
