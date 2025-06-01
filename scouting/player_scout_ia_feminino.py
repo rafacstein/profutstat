@@ -64,7 +64,8 @@ TEXT_PT = {
     "col_club": "Clube",
     "col_position": "Posição",
     "col_age": "Idade",
-    "col_similarity": "Similaridade"
+    "col_similarity": "Similaridade",
+    "stats_comparison_chart_title": "Comparação de Estatísticas Chave (Valores Originais)"
 }
 TEXT_EN = {
     "page_title": "ProFutStat - Player Scouting",
@@ -121,7 +122,8 @@ TEXT_EN = {
     "col_club": "Club",
     "col_position": "Position",
     "col_age": "Age",
-    "col_similarity": "Similarity"
+    "col_similarity": "Similarity",
+    "stats_comparison_chart_title": "Key Statistics Comparison (Original Values)"
 }
 TEXT_IT = {
     "page_title": "ProFutStat - Scouting Giocatrici",
@@ -178,7 +180,8 @@ TEXT_IT = {
     "col_club": "Club",
     "col_position": "Posizione",
     "col_age": "Età",
-    "col_similarity": "Similarità"
+    "col_similarity": "Similarità",
+    "stats_comparison_chart_title": "Confronto Statistiche Chiave (Valori Originali)"
 }
 
 # --- Streamlit Page Configuration (MUST BE THE FIRST STREAMLIT COMMAND) ---
@@ -538,30 +541,52 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
 
     st.subheader(lang_text["comparison_chart_title"].format(player1_name=ref_player_name, player2_name=similar_player_name))
 
-    # --- Radar Chart using processed (p90 and transformed) values for conceptual comparison ---
-    # Retrieve the processed (p90/transformed) data for the radar chart
-    ref_player_data_model = df_processed_data.loc[ref_player_id]
-    similar_player_data_model = df_processed_data.loc[selected_similar_player_original_index]
+    # --- NO RADAR CHART ---
 
-    # Select only the features actually used in the model
-    radar_df_comparison_model = pd.DataFrame({
-        'Estatística': numeric_features_for_model,
-        lang_text["value_ref_player"].format(player_name=ref_player_name): ref_player_data_model[numeric_features_for_model].values,
-        lang_text["value_similar_player"].format(player_name=similar_player_name): similar_player_data_model[numeric_features_for_model].values
-    })
+    # --- Bar Chart for Selected Key Statistics (using ORIGINAL values for clarity) ---
+    selected_stats_for_comparison = [
+        "minutesPlayed", "appearances", "goals", "assists", "totalDuelsWon",
+        "shotsOnTarget", "tackles", "accuratePasses", "accurateLongBalls"
+    ]
 
-    radar_melted_df_model = radar_df_comparison_model.melt(id_vars=['Estatística'], var_name='Jogador', value_name='Valor')
+    # Filter to only include stats that exist in the original dataframe
+    available_stats = [stat for stat in selected_stats_for_comparison if stat in df_original.columns]
+    
+    if not available_stats:
+        st.warning("Nenhuma das estatísticas chave selecionadas está disponível para comparação.")
+        return
 
-    fig_radar_model = px.line_polar(radar_melted_df_model, r='Valor', theta='Estatística', line_close=True,
-                                    color='Jogador', markers=True,
-                                    title=f'Comparação de Perfis de Estatísticas (Normalizadas/Processadas)')
-    st.plotly_chart(fig_radar_model, use_container_width=True)
+    comparison_data = {
+        'Estatística': [],
+        'Valor': [],
+        'Jogador': []
+    }
+
+    for stat in available_stats:
+        comparison_data['Estatística'].append(stat)
+        comparison_data['Valor'].append(ref_player_data_original[stat])
+        comparison_data['Jogador'].append(ref_player_name)
+
+        comparison_data['Estatística'].append(stat)
+        comparison_data['Valor'].append(similar_player_data_original[stat])
+        comparison_data['Jogador'].append(similar_player_name)
+    
+    comparison_df = pd.DataFrame(comparison_data)
+
+    fig_bar_comparison = px.bar(
+        comparison_df,
+        x='Estatística',
+        y='Valor',
+        color='Jogador',
+        barmode='group',
+        title=lang_text["stats_comparison_chart_title"],
+        labels={'Estatística': 'Estatística', 'Valor': 'Valor (Original)'}
+    )
+    st.plotly_chart(fig_bar_comparison, use_container_width=True)
+
 
     st.subheader(lang_text["similarity_factors_header"])
 
-    # --- Explanation using ORIGINAL values for direct comparison ---
-    # This is critical for professionals to understand the "raw" differences
-    
     # For cosine similarity, looking at the absolute difference of the *scaled* features
     # that went into FAISS is more direct for "contribution".
     # However, for business users, comparing original values is more intuitive.
@@ -598,7 +623,8 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
         # Optional: Add original value if different from processed (e.g., if p90)
         if feature.endswith('_p90'):
              original_feat_name = feature.replace('_p90', '')
-             st.write(f"  - _Original: {ref_player_data_original[original_feat_name]:.2f} vs {similar_player_data_original[original_feat_name]:.2f}_")
+             if original_feat_name in ref_player_data_original and original_feat_name in similar_player_data_original:
+                st.write(f"  - _Original: {ref_player_data_original[original_feat_name]:.2f} vs {similar_player_data_original[original_feat_name]:.2f}_")
 
 
     st.write(lang_text["least_similar_features"])
@@ -610,7 +636,8 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
         # Optional: Add original value if different from processed (e.g., if p90)
         if feature.endswith('_p90'):
             original_feat_name = feature.replace('_p90', '')
-            st.write(f"  - _Original: {ref_player_data_original[original_feat_name]:.2f} vs {similar_player_data_original[original_feat_name]:.2f}_")
+            if original_feat_name in ref_player_data_original and original_feat_name in similar_player_data_original:
+                st.write(f"  - _Original: {ref_player_data_original[original_feat_name]:.2f} vs {similar_player_data_original[original_feat_name]:.2f}_")
 
     # Bar chart for squared differences of SCALED features
     fig_bar_diff_scaled = px.bar(
