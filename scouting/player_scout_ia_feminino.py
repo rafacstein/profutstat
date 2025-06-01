@@ -324,19 +324,16 @@ def load_data_and_model(lang_text, original_numeric_cols):
     cols_to_p90 = [
         "goals", "bigChancesCreated", "bigChancesMissed", "assists", "goalsAssistsSum",
         "accuratePasses", "inaccuratePasses", "totalPasses", "keyPasses", "successfulDribbles",
-        "tackles", "interceptions", "yellowCards", "directRedCards", "redCards", "accurateCrosses",
+        "tackles", "interceptions", "yellowCards", "redCards", "accurateCrosses",
         "totalShots", "shotsOnTarget", "shotsOffTarget", "groundDuelsWon", "aerialDuelsWon", "totalDuelsWon",
-        "penaltiesTaken", "penaltyGoals", "penaltyWon", "penaltyConceded", "shotFromSetPiece", "freeKickGoal",
+        "penaltiesTaken", "penaltyGoals", "shotFromSetPiece", "freeKickGoal",
         "goalsFromInsideTheBox", "goalsFromOutsideTheBox", "shotsFromInsideTheBox", "shotsFromOutsideTheBox",
         "headedGoals", "leftFootGoals", "rightFootGoals", "accurateLongBalls", "clearances", "errorLeadToGoal",
         "errorLeadToShot", "dispossessed", "possessionLost", "possessionWonAttThird", "totalChippedPasses",
         "accurateChippedPasses", "touches", "wasFouled", "fouls", "hitWoodwork", "ownGoals", "dribbledPast",
-        "offsides", "blockedShots", "passToAssist", "saves", "cleanSheet", "penaltyFaced", "penaltySave",
-        "savedShotsFromInsideTheBox", "savedShotsFromOutsideTheBox", "goalsConcededInsideTheBox",
-        "goalsConcededOutsideTheBox", "punches", "runsOut", "successfulRunsOut", "highClaims", "crossesNotClaimed",
-        "totalAttemptAssist", "totalContest", "totalCross", "duelLost", "aerialLost", "attemptPenaltyMiss",
-        "attemptPenaltyPost", "attemptPenaltyTarget", "totalLongBalls", "goalsConceded", "tacklesWon",
-        "savesCaught", "savesParried", "totalOwnHalfPasses", "totalOppositionHalfPasses", "expectedGoals",
+        "offsides", "blockedShots", "passToAssist", "cleanSheet", "penaltyFaced", 
+         "totalAttemptAssist", "totalContest", "totalCross", "duelLost", "aerialLost", "totalLongBalls", "goalsConceded", "tacklesWon",
+        "totalOwnHalfPasses", "totalOppositionHalfPasses", "expectedGoals",
         "goalKicks", "ballRecovery"
     ]
 
