@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, Normalizer, PowerTransformer
-import faiss
+import faiss # Importação do FAISS
 import streamlit as st
 from fuzzywuzzy import fuzz
 import io
@@ -166,16 +166,16 @@ TEXT_IT = {
     "missing_columns_error": "Colonne attese mancanti nel file di dati: {columns}.",
     "check_column_names_info": "Verifica che i nomi delle colonne nel tuo file Parquet corrispondano ai nomi attesi nello script.",
     "logo_not_found_warning": "Logo non trovato, continuo senza di esso.",
-    "reference_player_found_success": "Giocatrice di riferimento trovata: **{player_name}** ({club})",
-    "reference_player_not_found_warning": "Giocatrice di riferimento '{player_name}' del club '{club}' non trovata. Ricerca solo per filtri.",
+    "reference_player_found_success": "Giocatrice di riferimento trovada: **{player_name}** ({club})",
+    "reference_player_not_found_warning": "Giocatrice di riferimento '{player_name}' do clube '{club}' não encontrada. Ricerca solo per filtri.",
     "no_reference_player_info": "Nessuna giocatrice di riferimento fornita. Le raccomandazioni saranno basate solo sui filtri.",
     "no_athletes_match_filters_warning": "Nessuna atleta corrisponde ai filtri selezionati. Prova a regolare i criteri.",
-    "no_similar_recommendations_info": "Nessuna raccomandazione simile trovata per **{player_name}** con i filtri applicati.",
+    "no_similar_recommendations_info": "Nessuna raccomandazione simile trovada para **{player_name}** com i filtri applicati.",
     "showing_filtered_athletes_info": "Visualizzazione di un campione di atlete che corrispondono ai tuoi filtri.",
     "only_x_athletes_found_info": "Solo {count} atlete trovate con i filtri applicati.",
-    "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri o il nome della giocatrice di riferimento.",
+    "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri ou o nome da giocatrice di riferimento.",
     "developed_by": "Sviluppato da RafaCStein",
-    "data_model_error": "Errore: Dati o modello non caricati correttamente. Per favore, riprova.",
+    "data_model_error": "Errore: Dati ou modello non caricati correttamente. Per favore, riprova.",
     "col_player_name": "Nome Giocatrice",
     "col_club": "Club",
     "col_position": "Posizione",
@@ -599,11 +599,11 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
         st.error("Erro: Transformer não encontrado na sessão. Recarregue a página.")
         return
 
-    # Transform original data for these two players using the stored transformer (PowerTransformer/StandardScaler)
-    ref_vector_pre_normalizer = transformer.transform(ref_player_data_original[numeric_features_for_model].values.reshape(1, -1))
+    # FIXED: Use df_processed_data for feature transformation to avoid KeyError
+    ref_vector_pre_normalizer = transformer.transform(df_processed_data.loc[ref_player_id, numeric_features_for_model].values.reshape(1, -1))
     ref_vector_pre_normalizer = scaler_model.transform(ref_vector_pre_normalizer)[0] # Apply StandardScaler
 
-    similar_vector_pre_normalizer = transformer.transform(similar_player_data_original[numeric_features_for_model].values.reshape(1, -1))
+    similar_vector_pre_normalizer = transformer.transform(df_processed_data.loc[selected_similar_player_original_index, numeric_features_for_model].values.reshape(1, -1))
     similar_vector_pre_normalizer = scaler_model.transform(similar_vector_pre_normalizer)[0] # Apply StandardScaler
 
 
