@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler, Normalizer, PowerTransformer
-import faiss # Importação do FAISS
+import faiss
 import streamlit as st
 from fuzzywuzzy import fuzz
 import io
@@ -167,13 +167,13 @@ TEXT_IT = {
     "check_column_names_info": "Verifica che i nomi delle colonne nel tuo file Parquet corrispondano ai nomi attesi nello script.",
     "logo_not_found_warning": "Logo non trovato, continuo senza di esso.",
     "reference_player_found_success": "Giocatrice di riferimento trovada: **{player_name}** ({club})",
-    "reference_player_not_found_warning": "Giocatrice di riferimento '{player_name}' do clube '{club}' não encontrada. Ricerca solo per filtri.",
+    "reference_player_not_found_warning": "Giocatrice di riferimento '{player_name}' do clube '{club}' non trovata. Ricerca solo per filtri.",
     "no_reference_player_info": "Nessuna giocatrice di riferimento fornita. Le raccomandazioni saranno basate solo sui filtri.",
     "no_athletes_match_filters_warning": "Nessuna atleta corrisponde ai filtri selezionati. Prova a regolare i criteri.",
     "no_similar_recommendations_info": "Nessuna raccomandazione simile trovada para **{player_name}** com i filtri applicati.",
-    "showing_filtered_athletes_info": "Visualizzazione di un campione di atlete che corrispondono ai tuoi filtri.",
+    "showing_filtered_athletes_info": "Visualizzazione di um campione di atlete che corrispondono ai tuoi filtri.",
     "only_x_athletes_found_info": "Solo {count} atlete trovate con i filtri applicati.",
-    "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri ou o nome da giocatrice di riferimento.",
+    "no_recommendations_warning": "Impossibile generare raccomandazioni con i criteri forniti. Prova a regolare i filtri ou o nome da giocatrice de riferimento.",
     "developed_by": "Sviluppato da RafaCStein",
     "data_model_error": "Errore: Dati ou modello non caricati correttamente. Per favore, riprova.",
     "col_player_name": "Nome Giocatrice",
@@ -541,8 +541,6 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
 
     st.subheader(lang_text["comparison_chart_title"].format(player1_name=ref_player_name, player2_name=similar_player_name))
 
-    # --- NO RADAR CHART ---
-
     # --- Bar Chart for Selected Key Statistics (using ORIGINAL values for clarity) ---
     selected_stats_for_comparison = [
         "minutesPlayed", "appearances", "goals", "assists", "totalDuelsWon",
@@ -587,40 +585,34 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
 
     st.subheader(lang_text["similarity_factors_header"])
 
-    # For cosine similarity, looking at the absolute difference of the *scaled* features
-    # that went into FAISS is more direct for "contribution".
-    # However, for business users, comparing original values is more intuitive.
-    # We'll calculate contribution based on the features *before* the final L2 normalization,
-    # but after StandardScaler (or PowerTransformer + StandardScaler)
-    
     # Ensure transformer_used is available in session state if it was stored
     transformer = st.session_state.get('transformer_used', None)
     if transformer is None:
         st.error("Erro: Transformer não encontrado na sessão. Recarregue a página.")
         return
 
-    # FIXED: Use df_processed_data for feature transformation to avoid KeyError
+    # Use df_processed_data for feature transformation
     ref_vector_pre_normalizer = transformer.transform(df_processed_data.loc[ref_player_id, numeric_features_for_model].values.reshape(1, -1))
     ref_vector_pre_normalizer = scaler_model.transform(ref_vector_pre_normalizer)[0] # Apply StandardScaler
 
     similar_vector_pre_normalizer = transformer.transform(df_processed_data.loc[selected_similar_player_original_index, numeric_features_for_model].values.reshape(1, -1))
     similar_vector_pre_normalizer = scaler_model.transform(similar_vector_pre_normalizer)[0] # Apply StandardScaler
 
-
-    # Calculate squared differences of the *scaled* features for contribution analysis
-    diff_squared_scaled = (ref_vector_pre_normalizer - similar_vector_pre_normalizer)**2
-    feature_contributions_scaled = pd.Series(diff_squared_scaled, index=numeric_features_for_model)
+    # Calculate absolute differences of the *scaled* features for contribution analysis
+    # Using absolute difference directly for easier interpretation of "similarity"
+    abs_diff_scaled = np.abs(ref_vector_pre_normalizer - similar_vector_pre_normalizer)
+    feature_differences_scaled = pd.Series(abs_diff_scaled, index=numeric_features_for_model)
 
     # Sort by smallest difference (most similar)
-    sorted_contributions_scaled = feature_contributions_scaled.sort_values(ascending=True)
+    sorted_differences_scaled = feature_differences_scaled.sort_values(ascending=True)
 
     st.write(lang_text["most_similar_features"])
-    st.markdown("_(Baseado nas estatísticas processadas para o modelo)_")
-    for feature, contribution in sorted_contributions_scaled.head(5).items(): # Top 5 most similar
-        st.write(f"- **{feature}** (contribuição: {contribution:.4f}):")
+    st.markdown("_(Baseado nas estatísticas processadas para o modelo - **Menor diferença absoluta indica maior similaridade**)_")
+    for feature, diff_val in sorted_differences_scaled.head(5).items(): # Top 5 most similar
+        st.write(f"- **{feature}** (diferença absoluta: {diff_val:.4f}):")
         st.write(f"  - {lang_text['value_ref_player'].format(player_name=ref_player_name)}: {df_processed_data.loc[ref_player_id, feature]:.2f}")
         st.write(f"  - {lang_text['value_similar_player'].format(player_name=similar_player_name)}: {df_processed_data.loc[selected_similar_player_original_index, feature]:.2f}")
-        # Optional: Add original value if different from processed (e.g., if p90)
+        # Add original value if different from processed (e.g., if p90)
         if feature.endswith('_p90'):
              original_feat_name = feature.replace('_p90', '')
              if original_feat_name in ref_player_data_original and original_feat_name in similar_player_data_original:
@@ -628,24 +620,24 @@ def display_detailed_similarity(ref_player_id, selected_similar_player_original_
 
 
     st.write(lang_text["least_similar_features"])
-    st.markdown("_(Baseado nas estatísticas processadas para o modelo)_")
-    for feature, contribution in sorted_contributions_scaled.tail(5).items(): # Top 5 least similar
-        st.write(f"- **{feature}** (contribuição: {contribution:.4f}):")
+    st.markdown("_(Baseado nas estatísticas processadas para o modelo - **Maior diferença absoluta indica menor similaridade**)_")
+    for feature, diff_val in sorted_differences_scaled.tail(5).items(): # Top 5 least similar
+        st.write(f"- **{feature}** (diferença absoluta: {diff_val:.4f}):")
         st.write(f"  - {lang_text['value_ref_player'].format(player_name=ref_player_name)}: {df_processed_data.loc[ref_player_id, feature]:.2f}")
         st.write(f"  - {lang_text['value_similar_player'].format(player_name=similar_player_name)}: {df_processed_data.loc[selected_similar_player_original_index, feature]:.2f}")
-        # Optional: Add original value if different from processed (e.g., if p90)
+        # Add original value if different from processed (e.g., if p90)
         if feature.endswith('_p90'):
             original_feat_name = feature.replace('_p90', '')
             if original_feat_name in ref_player_data_original and original_feat_name in similar_player_data_original:
                 st.write(f"  - _Original: {ref_player_data_original[original_feat_name]:.2f} vs {similar_player_data_original[original_feat_name]:.2f}_")
 
-    # Bar chart for squared differences of SCALED features
+    # Bar chart for absolute differences of SCALED features
     fig_bar_diff_scaled = px.bar(
-        x=sorted_contributions_scaled.index,
-        y=sorted_contributions_scaled.values,
-        title=f'Contribuição das Estatísticas (Diferença Quadrática) para a Similaridade entre {ref_player_name} e {similar_player_name}',
-        labels={'x': 'Estatística', 'y': 'Diferença Quadrática (Processado)'},
-        color=sorted_contributions_scaled.values,
+        x=sorted_differences_scaled.index,
+        y=sorted_differences_scaled.values,
+        title=f'Diferença Absoluta das Estatísticas (Processado) entre {ref_player_name} e {similar_player_name}',
+        labels={'x': 'Estatística', 'y': 'Diferença Absoluta (Processado)'},
+        color=sorted_differences_scaled.values,
         color_continuous_scale=px.colors.sequential.Plasma_r # Invert color scale for better viz
     )
     fig_bar_diff_scaled.update_layout(xaxis={'categoryorder':'total ascending'})
