@@ -102,6 +102,7 @@ def filtrar_atletas(posicoes=None, idade_min=18, idade_max=40, valor_min=0, valo
         (df['age'] <= idade_max) &
         (df['player.proposedMarketValue'] >= valor_min * 1_000_000) &
         (df['player.proposedMarketValue'] <= valor_max * 1_000_000)
+    )
     
     if posicoes:
         mascara &= df['position'].isin(posicoes)
