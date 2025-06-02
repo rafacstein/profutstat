@@ -1,4 +1,31 @@
-# ... (importações e CSS como antes) ...
+import streamlit as st # Make sure this is one of the first lines
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler, Normalizer
+import faiss
+from fuzzywuzzy import fuzz
+import io
+
+# --- Configuração da Página Streamlit ---
+st.set_page_config(
+    page_title="PlayerScout IA",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="auto"
+)
+
+# --- CSS Customizado para Estilo Profissional ---
+
+# --- Carregamento de Dados e Inicialização do Modelo (Cacheado para Performance) ---
+@st.cache_resource # Now 'st' is defined when Python reads this line
+def load_data_and_model():
+    # ... rest of your function
+    try:
+        df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo de dados. Por favor, verifique o link ou a conexão: {e}")
+        st.stop()
+    # ... (the rest of your script)
 
 # --- Carregamento de Dados e Inicialização do Modelo (Cacheado) ---
 @st.cache_resource
