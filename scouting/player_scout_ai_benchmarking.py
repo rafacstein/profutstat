@@ -97,8 +97,7 @@ def find_player(name, team=None):
     
     try:
         df_temp = df.copy()
-        df_temp['name_sim'] = df_temp['name'].apply(
-            lambda x: fuzz.token_set_ratio(name, str(x))  # Garante conversão para string
+        df_temp['name_sim'] = df_temp['name'].apply(lambda x: fuzz.token_set_ratio(name, str(x)))  # Garante conversão para string
         
         if team and isinstance(team, str):
             df_temp['team_sim'] = df_temp['team'].apply(
