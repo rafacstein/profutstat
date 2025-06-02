@@ -320,8 +320,7 @@ def load_data_and_model(lang_text, original_numeric_cols):
     # List of columns to convert to per 90 minutes
     # Exclude percentages, ratings, age, height, and already per-90 metrics like scoringFrequency
     cols_to_p90 = [
-        "goals", "bigChancesCreated", "bigChancesMissed", "assists", "goalsAssistsSum",
-        "accuratePasses", "inaccuratePasses", "totalPasses", "keyPasses", "successfulDribbles",
+        "goals", "bigChancesCreated", "bigChancesMissed", "assists", "accuratePasses", "inaccuratePasses", "totalPasses", "keyPasses", "successfulDribbles",
         "tackles", "interceptions", "yellowCards", "redCards", "accurateCrosses",
         "totalShots", "shotsOnTarget", "shotsOffTarget", "groundDuelsWon", "aerialDuelsWon", "totalDuelsWon",
         "penaltiesTaken", "penaltyGoals", "shotFromSetPiece", "freeKickGoal",
@@ -329,7 +328,7 @@ def load_data_and_model(lang_text, original_numeric_cols):
         "headedGoals", "leftFootGoals", "rightFootGoals", "accurateLongBalls", "clearances", "errorLeadToGoal",
         "errorLeadToShot", "dispossessed", "possessionLost", "possessionWonAttThird", "totalChippedPasses",
         "accurateChippedPasses", "touches", "wasFouled", "fouls", "hitWoodwork", "ownGoals", "dribbledPast",
-        "offsides", "blockedShots", "passToAssist", "cleanSheet", "penaltyFaced", 
+        "offsides", "blockedShots", "passToAssist", "cleanSheet",
          "totalAttemptAssist", "totalContest", "totalCross", "duelLost", "aerialLost", "totalLongBalls", "goalsConceded", "tacklesWon",
         "totalOwnHalfPasses", "totalOppositionHalfPasses", "expectedGoals",
         "goalKicks", "ballRecovery"
