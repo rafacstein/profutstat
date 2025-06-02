@@ -130,11 +130,11 @@ def load_data_and_model():
         st.stop()
 
     colunas_numericas = [
-        "rating", "totalRating", "countRating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
-        "goalsAssistsSum", "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
+        "rating", "goals", "bigChancesCreated", "bigChancesMissed", "assists",
+        "accuratePasses", "inaccuratePasses", "totalPasses", "accuratePassesPercentage",
         "accurateOwnHalfPasses", "accurateOppositionHalfPasses", "accurateFinalThirdPasses", "keyPasses", # Corrected a typo here: accurateOppositionHalfPasses
         "successfulDribbles", "successfulDribblesPercentage", "tackles", "interceptions", "yellowCards",
-        "directRedCards", "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
+        "redCards", "accurateCrosses", "accurateCrossesPercentage", "totalShots", "shotsOnTarget",
         "shotsOffTarget", "groundDuelsWon", "groundDuelsWonPercentage", "aerialDuelsWon", "aerialDuelsWonPercentage",
         "totalDuelsWon", "totalDuelsWonPercentage", "minutesPlayed", "goalConversionPercentage", "penaltiesTaken",
         "penaltyGoals", "penaltyWon", "penaltyConceded", "shotFromSetPiece", "freeKickGoal", "goalsFromInsideTheBox",
