@@ -1,52 +1,41 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler, Normalizer
-import faiss
+from sklearn.preprocessing import StandardScaler
 import streamlit as st
 from fuzzywuzzy import fuzz
-import io
 import plotly.express as px
 
-# --- Configuração da Página Streamlit ---
+# --- Configuração da Página ---
 st.set_page_config(
-    page_title="PlayerBenchmark Pro",
+    page_title="PlayerBench Pro",
     page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# --- CSS Customizado ---
+# --- Estilos CSS ---
 st.markdown("""
 <style>
+    .header {
+        padding: 20px;
+        background: #f0f2f6;
+        border-radius: 10px;
+        margin-bottom: 30px;
+    }
     .metric-card {
-        background-color: white;
+        background: white;
         border-radius: 10px;
         padding: 15px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         margin-bottom: 20px;
     }
     .metric-title {
-        font-size: 0.9em;
-        color: #7f8c8d;
-        margin-bottom: 5px;
+        color: #555;
+        font-size: 14px;
     }
     .metric-value {
-        font-size: 1.4em;
+        font-size: 24px;
         font-weight: bold;
-        color: #2c3e50;
-    }
-    .stTabs [role="tablist"] {
-        background-color: #f1f3f5;
-        border-radius: 8px;
-        padding: 4px;
-    }
-    .stTabs [role="tab"] {
-        border-radius: 6px;
-        padding: 8px 16px;
-    }
-    .stTabs [role="tab"][aria-selected="true"] {
-        background-color: #3498db;
-        color: white;
+        color: #333;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -55,76 +44,113 @@ st.markdown("""
 @st.cache_resource
 def load_data():
     try:
-        df = pd.read_parquet('https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet')
-        
-        colunas_numericas = [
-            "rating", "goals", "assists", "keyPasses", "successfulDribbles", 
-            "tackles", "interceptions", "accuratePassesPercentage", 
-            "shotsOnTarget", "minutesPlayed", "player.proposedMarketValue", "age"
+        # Carrega apenas colunas essenciais para economizar memória
+        cols = [
+            'player.name', 'player.team.name', 'position', 'age', 
+            'goals', 'assists', 'keyPasses', 'tackles', 'interceptions',
+            'accuratePassesPercentage', 'shotsOnTarget', 'minutesPlayed',
+            'market_value'  # Alterado para um nome mais simples
         ]
         
-        # Processamento dos dados
-        for col in colunas_numericas:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-            df[col] = df[col].fillna(df[col].median())
+        df = pd.read_parquet(
+            'https://github.com/rafacstein/profutstat/raw/main/scouting/final_merged_data.parquet',
+            columns=cols
+        )
         
-        return df, colunas_numericas
+        # Renomeia colunas para nomes mais simples
+        df = df.rename(columns={
+            'player.name': 'name',
+            'player.team.name': 'team',
+            'player.proposedMarketValue': 'market_value'  # Garante compatibilidade
+        })
+        
+        # Preenche valores ausentes
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
+        
+        return df
         
     except Exception as e:
         st.error(f"Erro ao carregar dados: {str(e)}")
         st.stop()
 
-df, colunas_metricas = load_data()
+df = load_data()
 
-# --- Funções Principais ---
-def encontrar_atleta(nome, clube=None):
-    if not nome:
+# --- Funções Auxiliares ---
+def find_player(name, team=None):
+    if not name:
         return None
     
     df_temp = df.copy()
-    df_temp['sim_nome'] = df_temp['player.name'].apply(lambda x: fuzz.token_set_ratio(nome, x))
+    df_temp['name_sim'] = df_temp['name'].apply(lambda x: fuzz.token_set_ratio(name, x))
     
-    if clube:
-        df_temp['sim_clube'] = df_temp['player.team.name'].apply(lambda x: fuzz.token_set_ratio(clube, x))
-        df_temp['score'] = 0.7 * df_temp['sim_nome'] + 0.3 * df_temp['sim_clube']
+    if team:
+        df_temp['team_sim'] = df_temp['team'].apply(lambda x: fuzz.token_set_ratio(team, x))
+        df_temp['score'] = 0.7 * df_temp['name_sim'] + 0.3 * df_temp['team_sim']
     else:
-        df_temp['score'] = df_temp['sim_nome']
+        df_temp['score'] = df_temp['name_sim']
     
-    melhor_match = df_temp.nlargest(1, 'score')
+    best_match = df_temp.nlargest(1, 'score')
     
-    if not melhor_match.empty and melhor_match['score'].iloc[0] >= 70:
-        return melhor_match.index[0]
+    if not best_match.empty and best_match['score'].iloc[0] >= 70:
+        return best_match.index[0]
     return None
 
-def filtrar_atletas(posicoes=None, idade_min=18, idade_max=40, valor_min=0, valor_max=100):
-    mascara = (
-        (df['age'] >= idade_min) & 
-        (df['age'] <= idade_max) &
-        (df['player.proposedMarketValue'] >= valor_min * 1_000_000) &
-        (df['player.proposedMarketValue'] <= valor_max * 1_000_000)
+def filter_players(position=None, min_age=18, max_age=40, min_value=0, max_value=100):
+    mask = (
+        (df['age'] >= min_age) & 
+        (df['age'] <= max_age) &
+        (df['market_value'] >= min_value * 1_000_000) &
+        (df['market_value'] <= max_value * 1_000_000)
     )
     
-    if posicoes:
-        mascara &= df['position'].isin(posicoes)
+    if position:
+        mask &= df['position'].isin(position)
     
-    return df[mascara].copy()
+    return df[mask].copy()
 
-def criar_grafico_comparacao(atleta_ref, comparados, metricas):
+def create_comparison_chart(ref_player, compare_players, metrics):
+    # Prepara dados para o gráfico
+    data = []
+    for metric in metrics:
+        row = {'Metric': metric, 'Type': 'Referência', 'Value': ref_player[metric]}
+        data.append(row)
+        
+        for _, player in compare_players.iterrows():
+            row = {
+                'Metric': metric,
+                'Type': f"{player['name']} ({player['team']})",
+                'Value': player[metric]
+            }
+            data.append(row)
+    
+    # Cria gráfico de barras
     fig = px.bar(
-        pd.DataFrame({
-            'Metrica': metricas,
-            'Referência': [atleta_ref[m] for m in metricas],
-            **{f"{row['player.name']}": [row[m] for m in metricas] 
-               for _, row in comparados.iterrows()}
-        }).melt(id_vars=['Metrica']),
-        x='Metrica', y='value', color='variable', barmode='group',
-        title="Comparação de Métricas", height=500
+        pd.DataFrame(data),
+        x='Metric', y='Value', color='Type', barmode='group',
+        title="Comparação de Métricas",
+        height=500
     )
+    
+    fig.update_layout(
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
+    )
+    
     return fig
 
 # --- Interface do Usuário ---
-st.title("⚽ PlayerBenchmark Pro")
-st.markdown("Compare jogadores e encontre atletas com perfis similares")
+st.markdown("""
+<div class="header">
+    <h1>PlayerBench Pro</h1>
+    <p>Ferramenta avançada de comparação de jogadores</p>
+</div>
+""", unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs(["🔍 Busca", "📊 Comparação"])
 
@@ -132,102 +158,106 @@ with tab1:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Atleta de Referência")
-        nome_ref = st.text_input("Nome do Jogador", key="nome_ref")
-        clube_ref = st.text_input("Clube (opcional)", key="clube_ref")
+        st.subheader("Jogador de Referência")
+        player_name = st.text_input("Nome do Jogador", key="player_name")
+        team_name = st.text_input("Clube (opcional)", key="team_name")
         
-        if nome_ref:
-            atleta_id = encontrar_atleta(nome_ref, clube_ref)
+        if player_name:
+            player_id = find_player(player_name, team_name)
             
-            if atleta_id is not None:
-                ref = df.loc[atleta_id]
-                st.session_state['ref'] = ref
+            if player_id is not None:
+                ref_player = df.loc[player_id]
+                st.session_state['ref_player'] = ref_player
                 
-                st.markdown("""
+                st.markdown(f"""
                 <div class="metric-card">
-                    <div class="metric-title">Atleta de Referência</div>
-                    <div class="metric-value">{}</div>
-                    <div>{} | {} anos | {:.2f}M €</div>
+                    <div class="metric-title">Jogador de Referência</div>
+                    <div class="metric-value">{ref_player['name']}</div>
+                    <div>{ref_player['team']} | {int(ref_player['age'])} anos | €{ref_player['market_value']/1_000_000:.2f}M</div>
                 </div>
-                """.format(
-                    ref['player.name'],
-                    ref['player.team.name'],
-                    int(ref['age']),
-                    ref['player.proposedMarketValue']/1_000_000
-                ), unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
             else:
-                st.warning("Jogador não encontrado")
-                st.session_state['ref'] = None
+                st.warning("Jogador não encontrado. Verifique o nome e tente novamente.")
+                st.session_state['ref_player'] = None
     
     with col2:
-        st.subheader("Filtros")
-        posicoes = st.multiselect(
+        st.subheader("Filtros de Busca")
+        
+        positions = st.multiselect(
             "Posições",
             options=df['position'].unique(),
             default=['ST', 'AM', 'LW', 'RW']
         )
         
-        idade_min, idade_max = st.slider(
+        min_age, max_age = st.slider(
             "Faixa de Idade",
             min_value=16, max_value=40, value=(18, 32)
         )
         
-        valor_min, valor_max = st.slider(
+        min_value, max_value = st.slider(
             "Valor de Mercado (M€)",
             min_value=0, max_value=100, value=(1, 30)
         )
         
         if st.button("Buscar Jogadores", type="primary"):
-            comparados = filtrar_atletas(
-                posicoes=posicoes if posicoes else None,
-                idade_min=idade_min,
-                idade_max=idade_max,
-                valor_min=valor_min,
-                valor_max=valor_max
+            compare_players = filter_players(
+                position=positions if positions else None,
+                min_age=min_age,
+                max_age=max_age,
+                min_value=min_value,
+                max_value=max_value
             )
             
-            st.session_state['comparados'] = comparados
-            st.success(f"Encontrados {len(comparados)} jogadores")
+            st.session_state['compare_players'] = compare_players
+            st.success(f"Encontrados {len(compare_players)} jogadores")
 
 with tab2:
-    if 'ref' not in st.session_state or st.session_state['ref'] is None:
-        st.warning("Selecione um atleta de referência na aba 'Busca'")
-    elif 'comparados' not in st.session_state or st.session_state['comparados'].empty:
-        st.warning("Aplique os filtros na aba 'Busca' para encontrar jogadores para comparação")
+    if 'ref_player' not in st.session_state or st.session_state['ref_player'] is None:
+        st.warning("Por favor, selecione um jogador de referência na aba 'Busca'")
+    elif 'compare_players' not in st.session_state or st.session_state['compare_players'].empty:
+        st.warning("Nenhum jogador encontrado com os filtros aplicados. Ajuste os critérios e tente novamente.")
     else:
-        ref = st.session_state['ref']
-        comparados = st.session_state['comparados'].head(5)  # Limitar a 5 para a visualização
+        ref_player = st.session_state['ref_player']
+        compare_players = st.session_state['compare_players'].head(5)  # Limita a 5 para visualização
         
-        st.subheader(f"Comparação com {ref['player.name']}")
+        st.subheader(f"Comparando com {ref_player['name']}")
         
         # Seleção de métricas
-        metricas = st.multiselect(
-            "Selecione as métricas para comparação",
-            options=colunas_metricas,
-            default=['goals', 'assists', 'keyPasses', 'tackles', 'interceptions']
+        available_metrics = [
+            'goals', 'assists', 'keyPasses', 'tackles', 
+            'interceptions', 'accuratePassesPercentage', 
+            'shotsOnTarget', 'minutesPlayed'
+        ]
+        
+        selected_metrics = st.multiselect(
+            "Métricas para comparação",
+            options=available_metrics,
+            default=['goals', 'assists', 'keyPasses'],
+            key="metrics_selector"
         )
         
-        if metricas:
+        if selected_metrics:
+            # Gráfico de comparação
             st.plotly_chart(
-                criar_grafico_comparacao(ref, comparados, metricas),
+                create_comparison_chart(ref_player, compare_players, selected_metrics),
                 use_container_width=True
             )
             
             # Tabela comparativa
             st.dataframe(
-                comparados[['player.name', 'player.team.name', 'position', 'age'] + metricas]
-                .assign(Valor=lambda x: x['player.proposedMarketValue']/1_000_000)
+                compare_players[['name', 'team', 'position', 'age'] + selected_metrics]
+                .assign(Valor_M€=lambda x: x['market_value']/1_000_000)
                 .rename(columns={
-                    'player.name': 'Nome',
-                    'player.team.name': 'Clube',
+                    'name': 'Nome',
+                    'team': 'Clube',
                     'position': 'Posição',
-                    'age': 'Idade',
-                    'player.proposedMarketValue': 'Valor (M€)'
+                    'age': 'Idade'
                 }),
-                height=400
+                height=400,
+                hide_index=True
             )
         else:
             st.warning("Selecione pelo menos uma métrica para comparação")
 
 st.markdown("---")
-st.caption("PlayerBenchmark Pro - Ferramenta de análise comparativa de jogadores")
+st.caption("© 2025 PlayerBench Pro - Ferramenta de análise de jogadores")
