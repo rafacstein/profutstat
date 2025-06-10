@@ -3,52 +3,75 @@ import pandas as pd
 import time
 from datetime import datetime
 
-# Initialize session state
-# Ensure ALL session state variables are initialized here when the app starts or refreshes.
+# --- Inicialização Robusta do st.session_state ---
+# Cada variável é verificada individualmente para garantir que exista
+# Isso resolve o AttributeError que estava acontecendo em certas reruns do Streamlit
 if 'match_data' not in st.session_state:
     st.session_state.match_data = pd.DataFrame(columns=[
         "Event", "Minute", "Second", "Team", "Player", "Type", "SubType", "Timestamp"
     ])
+
+if 'team_a' not in st.session_state:
     st.session_state.team_a = "Time A"
+
+if 'team_b' not in st.session_state:
     st.session_state.team_b = "Time B"
+
+if 'timer_start' not in st.session_state:
     st.session_state.timer_start = None
+
+if 'paused_time' not in st.session_state:
     st.session_state.paused_time = 0
+
+if 'playback_speed' not in st.session_state:
     st.session_state.playback_speed = 1
+
+if 'current_possession' not in st.session_state:
     st.session_state.current_possession = None
+
+if 'possession_start' not in st.session_state:
     st.session_state.possession_start = None
+
+if 'possession_log' not in st.session_state:
     st.session_state.possession_log = []
 
-    # --- Initializing DataFrames for Player Registration ---
+if 'registered_players_a' not in st.session_state:
     st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"])
+
+if 'registered_players_b' not in st.session_state:
     st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"])
-    # ---
 
-    st.session_state.selected_player_team_a_num = None # Stores only the number of the selected player
-    st.session_state.selected_player_team_b_num = None # Stores only the number of the selected player
+if 'selected_player_team_a_num' not in st.session_state:
+    st.session_state.selected_player_team_a_num = None
 
-# ========== FUNCTION DEFINITIONS ==========
+if 'selected_player_team_b_num' not in st.session_state:
+    st.session_state.selected_player_team_b_num = None
+# --- Fim da Inicialização ---
+
+
+# ========== DEFINIÇÕES DE FUNÇÕES ==========
 def get_current_time():
-    """Calculates and returns the current match time."""
+    """Calcula e retorna o tempo atual da partida."""
     if st.session_state.timer_start is None:
         return st.session_state.paused_time * st.session_state.playback_speed
     return (time.time() - st.session_state.timer_start) * st.session_state.playback_speed
 
 def start_timer():
-    """Starts or resumes the match timer."""
+    """Inicia ou retoma o cronômetro da partida."""
     st.session_state.timer_start = time.time() - st.session_state.paused_time
     if st.session_state.current_possession and not st.session_state.possession_start:
         st.session_state.possession_start = time.time()
 
 def pause_timer():
-    """Pauses the match timer and logs current possession duration."""
+    """Pausa o cronômetro da partida e registra a duração da posse atual."""
     if st.session_state.timer_start:
         st.session_state.paused_time = time.time() - st.session_state.timer_start
         st.session_state.timer_start = None
         log_possession_duration()
 
 def reset_timer():
-    """Resets the match timer, possession data, and all recorded match events.
-    Does NOT reset registered players by default, allowing them to persist across matches."""
+    """Reinicia o cronômetro da partida, dados de posse e todos os eventos registrados.
+    Não reinicia os jogadores cadastrados por padrão, permitindo que persistam entre as partidas."""
     st.session_state.timer_start = None
     st.session_state.paused_time = 0
     st.session_state.possession_log = []
@@ -62,10 +85,10 @@ def reset_timer():
     # If you want to reset them, uncomment the lines below:
     # st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"])
     # st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"])
-    st.rerun() # Rerun to update the UI immediately
+    st.rerun() # Reexecuta para atualizar a interface imediatamente
 
 def log_possession_duration():
-    """Logs the duration of the current possession for the active team."""
+    """Registra a duração da posse atual para o time ativo."""
     if st.session_state.current_possession and st.session_state.possession_start:
         duration = time.time() - st.session_state.possession_start
         st.session_state.possession_log.append({
@@ -73,23 +96,24 @@ def log_possession_duration():
             "Start": st.session_state.possession_start,
             "Duration": duration
         })
-        st.session_state.possession_start = time.time()
+        # Reset possession_start for next segment, or clear if timer is paused
+        st.session_state.possession_start = time.time() if st.session_state.timer_start else None
 
 def set_possession(team):
-    """Sets the current possession to the specified team."""
-    log_possession_duration() # Log previous possession before changing
+    """Define a posse atual para o time especificado."""
+    log_possession_duration() # Registra a posse anterior antes de mudar
     st.session_state.current_possession = team
-    st.session_state.possession_start = time.time() if st.session_state.timer_start else None # Start possession timer if match is running
+    st.session_state.possession_start = time.time() if st.session_state.timer_start else None # Inicia o timer de posse se a partida estiver rodando
     st.rerun()
 
 def calculate_possession():
-    """Calculates and returns the possession percentages for both teams."""
+    """Calcula e retorna as porcentagens de posse para ambos os times."""
     team_a_time = sum([p["Duration"] for p in st.session_state.possession_log 
                       if p["Team"] == st.session_state.team_a])
     team_b_time = sum([p["Duration"] for p in st.session_state.possession_log 
                       if p["Team"] == st.session_state.team_b])
     
-    # Add current ongoing possession to calculation if match is running
+    # Adiciona a posse atual em andamento ao cálculo se a partida estiver rodando
     if st.session_state.timer_start and st.session_state.current_possession and st.session_state.possession_start:
         current_duration = time.time() - st.session_state.possession_start
         if st.session_state.current_possession == st.session_state.team_a:
@@ -100,17 +124,17 @@ def calculate_possession():
     total_time = team_a_time + team_b_time
     if total_time > 0:
         return (team_a_time/total_time)*100, (team_b_time/total_time)*100
-    return 0, 0 # Return 0,0 if no possession has been recorded yet
+    return 0, 0 # Retorna 0,0 se nenhuma posse tiver sido registrada ainda
 
 def record_event(event, team, player_number, event_type="", subtype=""):
-    """Records a new event in the match data DataFrame."""
+    """Registra um novo evento no DataFrame de dados da partida."""
     current_time = get_current_time()
     minute = int(current_time // 60)
     second = int(current_time % 60)
     
     player_name = ""
     if team == st.session_state.team_a:
-        # Get player name from the registered players DataFrame using the player_number
+        # Obtém o nome do jogador do DataFrame de jogadores cadastrados usando o player_number
         player_row = st.session_state.registered_players_a[st.session_state.registered_players_a["Number"] == player_number]
         if not player_row.empty:
             player_name = player_row["Name"].iloc[0]
@@ -119,7 +143,7 @@ def record_event(event, team, player_number, event_type="", subtype=""):
         if not player_row.empty:
             player_name = player_row["Name"].iloc[0]
             
-    # Format the player display string to include number and name
+    # Formata a string de exibição do jogador para incluir número e nome
     full_player_display = f"#{player_number} {player_name}" if player_name else f"#{player_number} (Nome não encontrado)"
 
     new_event = {
@@ -127,7 +151,7 @@ def record_event(event, team, player_number, event_type="", subtype=""):
         "Minute": minute,
         "Second": second,
         "Team": team,
-        "Player": full_player_display, # Use the formatted player name
+        "Player": full_player_display, # Usa o nome do jogador formatado
         "Type": event_type,
         "SubType": subtype,
         "Timestamp": time.time()
@@ -139,19 +163,19 @@ def record_event(event, team, player_number, event_type="", subtype=""):
     )
     st.rerun()
 
-# ========== UI: PLAYER REGISTRATION SECTION ==========
+# ========== INTERFACE DO USUÁRIO: SEÇÃO DE CADASTRO DE JOGADORES ==========
 def player_registration_section():
-    """Displays the UI for registering players for both teams."""
+    """Exibe a interface para cadastrar jogadores para ambos os times."""
     st.header("📋 Cadastro de Jogadores")
     registration_col1, registration_col2 = st.columns(2)
 
     with registration_col1:
         st.subheader(f"{st.session_state.team_a} - Cadastro")
-        player_num_a = st.text_input("Número do Jogador:", key="player_num_a_input")
-        player_name_a = st.text_input("Nome do Jogador:", key="player_name_a_input")
+        player_num_a = st.text_input("Número do Jogador (Time A):", key="player_num_a_input")
+        player_name_a = st.text_input("Nome do Jogador (Time A):", key="player_name_a_input")
         if st.button(f"Adicionar Jogador ao {st.session_state.team_a}", key="add_player_a_btn"):
             if player_num_a and player_name_a:
-                # Check if player number already exists
+                # Verifica se o número do jogador já existe
                 if player_num_a in st.session_state.registered_players_a["Number"].values:
                     st.warning(f"Jogador com número {player_num_a} já existe no {st.session_state.team_a}.")
                 else:
@@ -166,18 +190,19 @@ def player_registration_section():
         st.markdown("---")
         st.subheader(f"Jogadores de {st.session_state.team_a} Cadastrados:")
         if not st.session_state.registered_players_a.empty:
+            # Garante que a coluna 'Number' seja tratada como inteiros para ordenação numérica
             st.dataframe(st.session_state.registered_players_a.sort_values(by="Number", key=lambda x: x.astype(int)), use_container_width=True)
             if st.button(f"Limpar Jogadores de {st.session_state.team_a}", key="clear_players_a_btn"):
                 st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"])
-                st.rerun() # Rerun to update the dataframe display
+                st.rerun() # Reexecuta para atualizar a exibição do dataframe
         else:
             st.info("Nenhum jogador cadastrado para o Time A.")
 
 
     with registration_col2:
         st.subheader(f"{st.session_state.team_b} - Cadastro")
-        player_num_b = st.text_input("Número do Jogador:", key="player_num_b_input")
-        player_name_b = st.text_input("Nome do Jogador:", key="player_name_b_input")
+        player_num_b = st.text_input("Número do Jogador (Time B):", key="player_num_b_input")
+        player_name_b = st.text_input("Nome do Jogador (Time B):", key="player_name_b_input")
         if st.button(f"Adicionar Jogador ao {st.session_state.team_b}", key="add_player_b_btn"):
             if player_num_b and player_name_b:
                 if player_num_b in st.session_state.registered_players_b["Number"].values:
@@ -197,20 +222,22 @@ def player_registration_section():
             st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: x.astype(int)), use_container_width=True)
             if st.button(f"Limpar Jogadores de {st.session_state.team_b}", key="clear_players_b_btn"):
                 st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"])
-                st.rerun() # Rerun to update the dataframe display
+                st.rerun() # Reexecuta para atualizar a exibição do dataframe
         else:
             st.info("Nenhum jogador cadastrado para o Time B.")
     
-    st.markdown("---") # Visual separator
+    st.markdown("---") # Separador visual
 
-# ========== STREAMLIT UI LAYOUT ==========
+# ========== LAYOUT DA INTERFACE DO USUÁRIO STREAMLIT ==========
 st.set_page_config(layout="wide", page_title="Football Match Tracker")
 st.title("⚽ Football Match Tracker")
 
-# 1. Player Registration Section
+# 1. Seção de Cadastro de Jogadores
 player_registration_section()
 
-# 2. Match Controls Section
+# ---
+
+# 2. Seção de Controles da Partida
 st.header("⚙️ Controles da Partida")
 control_col1, control_col2, control_col3 = st.columns([2,2,3])
 with control_col1:
@@ -228,13 +255,15 @@ with control_col3:
             pause_timer()
     with timer_col3:
         if st.button("↻ Resetar Tudo", use_container_width=True, key="reset_all_btn"):
-            reset_timer() # Resets match data and timer
-            # Also reset registered players when "Reset All" is pressed
+            reset_timer() # Reinicia os dados da partida e o timer
+            # Também reinicia os jogadores cadastrados ao pressionar "Resetar Tudo"
             st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"]) 
             st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"]) 
-            st.rerun() # Trigger a full rerun
+            st.rerun() # Aciona uma reexecução completa
 
-# 3. Match Time and Possession Section
+# ---
+
+# 3. Seção de Tempo da Partida e Posse
 time_col, poss_col_a, poss_col_b = st.columns([2,1,1])
 with time_col:
     current_time = get_current_time()
@@ -252,7 +281,9 @@ with poss_col_b:
         set_possession(st.session_state.team_b)
     st.metric(f"Posse {st.session_state.team_b}", f"{team_b_poss:.1f}%")
 
-# 4. Player Action Buttons Section
+# ---
+
+# 4. Seção de Botões de Ação do Jogador
 st.header("⚽ Ações da Partida (Por Jogador)")
 
 player_selection_col1, player_selection_col2 = st.columns(2)
@@ -260,21 +291,21 @@ player_selection_col1, player_selection_col2 = st.columns(2)
 with player_selection_col1:
     st.markdown(f"### {st.session_state.team_a} - Ações")
     
-    # Prepare options for the selectbox based on registered players
-    # Add a default "Select a Player" option
+    # Prepara as opções para o selectbox com base nos jogadores cadastrados
+    # Adiciona uma opção padrão "Selecione um Jogador"
     player_options_a = ["Selecione um Jogador"] + st.session_state.registered_players_a["Number"].tolist()
     
     st.session_state.selected_player_team_a_num = st.selectbox(
         "Selecione o Jogador:", 
         options=player_options_a,
-        # format_func displays both number and name
+        # format_func exibe o número e o nome
         format_func=lambda x: f"#{x} {st.session_state.registered_players_a[st.session_state.registered_players_a['Number'] == x]['Name'].iloc[0]}" 
                       if x != "Selecione um Jogador" and not st.session_state.registered_players_a[st.session_state.registered_players_a['Number'] == x].empty
                       else x,
         key="player_selector_a"
     )
 
-    # Only show action buttons if a player is selected (not the default option)
+    # Exibe os botões de ação apenas se um jogador for selecionado (não a opção padrão)
     if st.session_state.selected_player_team_a_num and st.session_state.selected_player_team_a_num != "Selecione um Jogador":
         current_player_a_name = st.session_state.registered_players_a[
             st.session_state.registered_players_a["Number"] == st.session_state.selected_player_team_a_num
@@ -362,7 +393,7 @@ with player_selection_col1:
 with player_selection_col2:
     st.markdown(f"### {st.session_state.team_b} - Ações")
 
-    # Prepare options for the selectbox based on registered players
+    # Prepara as opções para o selectbox
     player_options_b = ["Selecione um Jogador"] + st.session_state.registered_players_b["Number"].tolist()
 
     st.session_state.selected_player_team_b_num = st.selectbox(
@@ -374,7 +405,7 @@ with player_selection_col2:
         key="player_selector_b"
     )
 
-    # Only show action buttons if a player is selected (not the default option)
+    # Exibe os botões de ação apenas se um jogador for selecionado (não a opção padrão)
     if st.session_state.selected_player_team_b_num and st.session_state.selected_player_team_b_num != "Selecione um Jogador":
         current_player_b_name = st.session_state.registered_players_b[
             st.session_state.registered_players_b["Number"] == st.session_state.selected_player_team_b_num
@@ -459,14 +490,14 @@ with player_selection_col2:
         st.info("Selecione um jogador do Time Visitante para registrar ações.")
 
 # ---
-# 5. Data Reporting Section
+# 5. Seção de Relatórios de Dados
 st.header("📊 Relatório da Partida")
 if not st.session_state.match_data.empty:
     st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"]), use_container_width=True)
     
-    # Display basic player statistics
+    # Exibe estatísticas básicas por jogador
     st.subheader("Estatísticas por Jogador")
-    # Group by Player, Event, Type, SubType to count each unique action
+    # Agrupa por Jogador, Evento, Tipo, SubTipo para contar cada ação única
     player_stats = st.session_state.match_data.groupby(['Player', 'Event', 'Type', 'SubType']).size().reset_index(name='Count')
     st.dataframe(player_stats, use_container_width=True)
 
@@ -490,7 +521,7 @@ if not st.session_state.match_data.empty:
 else:
     st.info("Nenhum evento registrado ainda. Cadastre jogadores e inicie o tracking!")
 
-# Auto-refresh to update the timer every second if it's running
+# Auto-atualização para o timer a cada segundo se estiver rodando
 if st.session_state.timer_start:
     time.sleep(1)
     st.rerun()
