@@ -270,6 +270,13 @@ with player_selection_col1:
         with col3:
             st.button("Perda de Posse", key=f"possession_lost_a_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
 
+        st.markdown("#### Duelos Aéreos")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("Vencido", key=f"aerial_won_a_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Vencido"))
+        with col2:
+            st.button("Perdido", key=f"aerial_lost_a_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Perdido"))
+
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -332,6 +339,13 @@ with player_selection_col2:
             st.button("Drible Errado ✗", key=f"drible_fail_b_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Errado"))
         with col3:
             st.button("Perda de Posse", key=f"possession_lost_b_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
+
+        st.markdown("#### Duelos Aéreos")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.button("Vencido", key=f"aerial_won_b_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Vencido"))
+        with col2:
+            st.button("Perdido", key=f"aerial_lost_b_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Perdido"))
 
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
