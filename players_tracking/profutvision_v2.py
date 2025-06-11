@@ -221,7 +221,7 @@ with timer_controls_col:
             pause_timer()
     with timer_col3:
         if st.button("↻ Resetar Partida", use_container_width=True, key="reset_match_btn"):
-            reset_timer() # Reseta apenas a partida, não os jogadores
+            reset_timer()
             st.rerun()
 
 st.header("⚽ Ações da Partida (Por Jogador)")
@@ -241,60 +241,52 @@ with player_selection_col1:
     )
 
     if st.session_state.selected_player_team_a_num and st.session_state.selected_player_team_a_num != "Selecione um Jogador":
-        current_player_a_name = st.session_state.registered_players_a[
-            st.session_state.registered_players_a["Number"] == st.session_state.selected_player_team_a_num
-        ]["Name"].iloc[0]
-        st.markdown(f"**Registrando ações para: #{st.session_state.selected_player_team_a_num} {current_player_a_name}**")
+        player_num = st.session_state.selected_player_team_a_num
+        team_name = st.session_state.team_a
+        player_name = st.session_state.registered_players_a[st.session_state.registered_players_a["Number"] == player_num]["Name"].iloc[0]
+        st.markdown(f"**Registrando ações para: #{player_num} {player_name}**")
 
         st.markdown("#### Finalizações")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.button("No Alvo", key=f"shot_on_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Finalização", st.session_state.team_a, st.session_state.selected_player_team_a_num, "No Alvo"))
+            st.button("No Alvo", key=f"shot_on_a_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "No Alvo"))
         with col2:
-            st.button("Fora do Alvo", key=f"shot_off_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Finalização", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Fora do Alvo"))
+            st.button("Fora do Alvo", key=f"shot_off_a_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "Fora do Alvo"))
         with col3:
-            st.button("⚽ Gol", key=f"goal_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Gol", st.session_state.team_a, st.session_state.selected_player_team_a_num))
+            st.button("⚽ Gol", key=f"goal_a_{player_num}", on_click=record_event, args=("Gol", team_name, player_num))
         
         st.markdown("#### Passes")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.button("Curto ✓", key=f"short_pass_a_success_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Certo", "Curto"))
+            st.button("Curto ✓", key=f"short_pass_a_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Curto"))
         with col2:
-            st.button("Curto ✗", key=f"short_pass_a_fail_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Errado", "Curto"))
+            st.button("Curto ✗", key=f"short_pass_a_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Curto"))
         with col3:
-            st.button("Longo ✓", key=f"long_pass_a_success_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Certo", "Longo"))
+            st.button("Longo ✓", key=f"long_pass_a_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Longo"))
         with col4:
-            st.button("Longo ✗", key=f"long_pass_a_fail_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Errado", "Longo"))
+            st.button("Longo ✗", key=f"long_pass_a_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Longo"))
 
         st.markdown("#### Dribles & Perdas")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.button("Drible Certo ✓", key=f"drible_success_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Drible", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Certo"))
+            st.button("Drible Certo ✓", key=f"drible_success_a_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Certo"))
         with col2:
-            st.button("Drible Errado ✗", key=f"drible_fail_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Drible", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Errado"))
+            st.button("Drible Errado ✗", key=f"drible_fail_a_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Errado"))
         with col3:
-            st.button("Perda de Posse", key=f"possession_lost_a_{st.session_state.selected_player_team_a_num}", 
-                      on_click=record_event, args=("Perda de Posse", st.session_state.team_a, st.session_state.selected_player_team_a_num))
+            st.button("Perda de Posse", key=f"possession_lost_a_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
 
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Desarme", key=f"tackle_a_{st.session_state.selected_player_team_a_num}", on_click=record_event, args=("Defesa", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Desarme"))
-            st.button("Drible Sofrido", key=f"dribbled_past_a_{st.session_state.selected_player_team_a_num}", on_click=record_event, args=("Defesa", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Drible Sofrido"))
-        with col2:
-            st.button("Interceptação", key=f"interception_a_{st.session_state.selected_player_team_a_num}", on_click=record_event, args=("Defesa", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Interceptação"))
-            st.button("Erro p/ Finalização", key=f"error_shot_a_{st.session_state.selected_player_team_a_num}", on_click=record_event, args=("Erro", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Erro que levou a finalização"))
-        with col3:
-            st.button("Falta Cometida", key=f"foul_committed_a_{st.session_state.selected_player_team_a_num}", on_click=record_event, args=("Falta", st.session_state.team_a, st.session_state.selected_player_team_a_num, "Cometida"))
+        with col1: # Recuperação de Bola
+            st.button("Desarme", key=f"tackle_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
+            st.button("Interceptação", key=f"interception_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
+            st.button("Corte", key=f"clearance_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
+        with col2: # Faltas
+            st.button("Falta Cometida", key=f"foul_committed_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
+            st.button("Falta Sofrida", key=f"foul_suffered_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
+        with col3: # Erros Defensivos
+            st.button("Drible Sofrido", key=f"dribbled_past_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
+            st.button("Erro p/ Finalização", key=f"error_shot_a_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
     else:
         st.info("Selecione um jogador do Time da Casa para registrar ações.")
 
@@ -312,61 +304,52 @@ with player_selection_col2:
     )
 
     if st.session_state.selected_player_team_b_num and st.session_state.selected_player_team_b_num != "Selecione um Jogador":
-        current_player_b_name = st.session_state.registered_players_b[
-            st.session_state.registered_players_b["Number"] == st.session_state.selected_player_team_b_num
-        ]["Name"].iloc[0]
-        st.markdown(f"**Registrando ações para: #{st.session_state.selected_player_team_b_num} {current_player_b_name}**")
+        player_num = st.session_state.selected_player_team_b_num
+        team_name = st.session_state.team_b
+        player_name = st.session_state.registered_players_b[st.session_state.registered_players_b["Number"] == player_num]["Name"].iloc[0]
+        st.markdown(f"**Registrando ações para: #{player_num} {player_name}**")
 
         st.markdown("#### Finalizações")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.button("No Alvo", key=f"shot_on_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Finalização", st.session_state.team_b, st.session_state.selected_player_team_b_num, "No Alvo"))
+            st.button("No Alvo", key=f"shot_on_b_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "No Alvo"))
         with col2:
-            st.button("Fora do Alvo", key=f"shot_off_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Finalização", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Fora do Alvo"))
+            st.button("Fora do Alvo", key=f"shot_off_b_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "Fora do Alvo"))
         with col3:
-            st.button("⚽ Gol", key=f"goal_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Gol", st.session_state.team_b, st.session_state.selected_player_team_b_num))
+            st.button("⚽ Gol", key=f"goal_b_{player_num}", on_click=record_event, args=("Gol", team_name, player_num))
         
         st.markdown("#### Passes")
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.button("Curto ✓", key=f"short_pass_b_success_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Certo", "Curto"))
+            st.button("Curto ✓", key=f"short_pass_b_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Curto"))
         with col2:
-            st.button("Curto ✗", key=f"short_pass_b_fail_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Errado", "Curto"))
+            st.button("Curto ✗", key=f"short_pass_b_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Curto"))
         with col3:
-            st.button("Longo ✓", key=f"long_pass_b_success_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Certo", "Longo"))
+            st.button("Longo ✓", key=f"long_pass_b_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Longo"))
         with col4:
-            st.button("Longo ✗", key=f"long_pass_b_fail_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Passe", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Errado", "Longo"))
+            st.button("Longo ✗", key=f"long_pass_b_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Longo"))
 
         st.markdown("#### Dribles & Perdas")
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.button("Drible Certo ✓", key=f"drible_success_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Drible", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Certo"))
+            st.button("Drible Certo ✓", key=f"drible_success_b_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Certo"))
         with col2:
-            st.button("Drible Errado ✗", key=f"drible_fail_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Drible", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Errado"))
+            st.button("Drible Errado ✗", key=f"drible_fail_b_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Errado"))
         with col3:
-            st.button("Perda de Posse", key=f"possession_lost_b_{st.session_state.selected_player_team_b_num}", 
-                      on_click=record_event, args=("Perda de Posse", st.session_state.team_b, st.session_state.selected_player_team_b_num))
+            st.button("Perda de Posse", key=f"possession_lost_b_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
 
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Desarme", key=f"tackle_b_{st.session_state.selected_player_team_b_num}", on_click=record_event, args=("Defesa", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Desarme"))
-            st.button("Drible Sofrido", key=f"dribbled_past_b_{st.session_state.selected_player_team_b_num}", on_click=record_event, args=("Defesa", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Drible Sofrido"))
-        with col2:
-            st.button("Interceptação", key=f"interception_b_{st.session_state.selected_player_team_b_num}", on_click=record_event, args=("Defesa", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Interceptação"))
-            st.button("Erro p/ Finalização", key=f"error_shot_b_{st.session_state.selected_player_team_b_num}", on_click=record_event, args=("Erro", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Erro que levou a finalização"))
-        with col3:
-            st.button("Falta Cometida", key=f"foul_committed_b_{st.session_state.selected_player_team_b_num}", on_click=record_event, args=("Falta", st.session_state.team_b, st.session_state.selected_player_team_b_num, "Cometida"))
-
+        with col1: # Recuperação de Bola
+            st.button("Desarme", key=f"tackle_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
+            st.button("Interceptação", key=f"interception_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
+            st.button("Corte", key=f"clearance_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
+        with col2: # Faltas
+            st.button("Falta Cometida", key=f"foul_committed_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
+            st.button("Falta Sofrida", key=f"foul_suffered_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
+        with col3: # Erros Defensivos
+            st.button("Drible Sofrido", key=f"dribbled_past_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
+            st.button("Erro p/ Finalização", key=f"error_shot_b_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
     else:
         st.info("Selecione um jogador do Time Visitante para registrar ações.")
 
