@@ -104,12 +104,10 @@ def generate_excel_by_player():
     """Gera um arquivo Excel com estatísticas agregadas por jogador."""
     df = st.session_state.match_data.copy()
     
-    # Criar uma coluna de evento combinado para usar como colunas no pivot
     df['CombinedEvent'] = df['Event'].fillna('') + \
                          df['Type'].apply(lambda x: f" - {x}" if x else "") + \
                          df['SubType'].apply(lambda x: f" - {x}" if x else "")
 
-    # Usar pivot_table para transformar os dados
     player_stats_pivot = df.pivot_table(
         index=['Player', 'Team'], 
         columns='CombinedEvent', 
@@ -119,7 +117,6 @@ def generate_excel_by_player():
     
     player_stats_pivot = player_stats_pivot.reset_index()
 
-    # Criar um buffer de bytes para o arquivo Excel
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         player_stats_pivot.to_excel(writer, index=False, sheet_name='Stats por Jogador')
@@ -201,9 +198,7 @@ with control_col1:
 with control_col2:
     st.session_state.team_b = st.text_input("Nome do Time Visitante:", st.session_state.team_b, key="team_b_name_input")
 
-# Seção do Timer e Controles
 timer_display_col, timer_controls_col = st.columns([1, 2])
-
 with timer_display_col:
     current_time = get_current_time()
     display_min = int(current_time // 60)
@@ -277,14 +272,14 @@ with player_selection_col1:
 
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
-        with col1: # Recuperação de Bola
+        with col1:
             st.button("Desarme", key=f"tackle_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
             st.button("Interceptação", key=f"interception_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
             st.button("Corte", key=f"clearance_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
-        with col2: # Faltas
+        with col2:
             st.button("Falta Cometida", key=f"foul_committed_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
             st.button("Falta Sofrida", key=f"foul_suffered_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
-        with col3: # Erros Defensivos
+        with col3:
             st.button("Drible Sofrido", key=f"dribbled_past_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
             st.button("Erro p/ Finalização", key=f"error_shot_a_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
     else:
@@ -340,14 +335,14 @@ with player_selection_col2:
 
         st.markdown("#### Ações Defensivas / Outras")
         col1, col2, col3 = st.columns(3)
-        with col1: # Recuperação de Bola
+        with col1:
             st.button("Desarme", key=f"tackle_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
             st.button("Interceptação", key=f"interception_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
             st.button("Corte", key=f"clearance_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
-        with col2: # Faltas
+        with col2:
             st.button("Falta Cometida", key=f"foul_committed_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
             st.button("Falta Sofrida", key=f"foul_suffered_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
-        with col3: # Erros Defensivos
+        with col3:
             st.button("Drible Sofrido", key=f"dribbled_past_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
             st.button("Erro p/ Finalização", key=f"error_shot_b_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
     else:
@@ -384,7 +379,6 @@ if not st.session_state.match_data.empty:
 else:
     st.info("Nenhum evento registrado ainda. Cadastre jogadores e inicie o tracking!")
 
-# Auto-atualização para o timer a cada segundo se estiver rodando
 if st.session_state.timer_start:
     time.sleep(1)
     st.rerun()
