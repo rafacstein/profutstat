@@ -14,7 +14,6 @@ initial_state = {
     'team_b': "Time B",
     'timer_start': None,
     'paused_time': 0,
-    'playback_speed': 1,
     'registered_players_a': pd.DataFrame(columns=["Number", "Name"]),
     'registered_players_b': pd.DataFrame(columns=["Number", "Name"]),
     'youtube_url': ""
@@ -55,6 +54,15 @@ def record_event(event, team, player_number, event_type="", subtype=""):
     minute = int(current_time // 60)
     second = int(current_time % 60)
 
+    # Lógica para registrar observação customizada
+    if event == "Observação":
+        key_prefix = 'a' if team == st.session_state.team_a else 'b'
+        obs_key = f"obs_text_{key_prefix}_{player_number}"
+        subtype = st.session_state.get(obs_key, "")
+        if not subtype: # Não registra observação vazia
+            st.warning("A caixa de observação está vazia.")
+            return
+
     # Identifica o time e busca o nome do jogador
     registered_players = st.session_state.registered_players_a if team == st.session_state.team_a else st.session_state.registered_players_b
     player_row = registered_players[registered_players["Number"] == player_number]
@@ -70,6 +78,10 @@ def record_event(event, team, player_number, event_type="", subtype=""):
     st.session_state.match_data = pd.concat(
         [st.session_state.match_data, pd.DataFrame([new_event])], ignore_index=True
     )
+    # Limpa a caixa de observação após o registro
+    if event == "Observação":
+      st.session_state[obs_key] = ""
+
 
 def generate_excel_by_player():
     """Gera um arquivo Excel com estatísticas agregadas por jogador."""
@@ -147,12 +159,8 @@ with main_col1:
     display_min = int(current_time // 60)
     display_sec = int(current_time % 60)
 
-    # ###########################
-    # ## INÍCIO DO BLOCO CORRIGIDO ##
-    # ###########################
-    # Criamos todas as colunas necessárias em um único nível para evitar aninhamento ilegal
+    # Colunas para o cronômetro e botões de controle
     col_metric, col_start, col_pause, col_reset = st.columns([1.5, 1, 1, 1])
-
     with col_metric:
         st.metric("Tempo", f"{display_min}:{display_sec:02d}")
     with col_start:
@@ -161,10 +169,6 @@ with main_col1:
         st.button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
     with col_reset:
         st.button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
-    # #########################
-    # ## FIM DO BLOCO CORRIGIDO ##
-    # #########################
-
 
 # --- Coluna da Direita: Abas de Ações ---
 with main_col2:
@@ -189,31 +193,42 @@ with main_col2:
         p = selected_player_num # Alias para encurtar
         st.markdown(f"**Registrando para: {format_func(p)}**")
         
-        st.markdown("##### Finalização e Gol")
-        c1, c2, c3 = st.columns(3)
-        c1.button("No Alvo", key=f"son_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "No Alvo"), use_container_width=True)
-        c2.button("Fora", key=f"soff_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "Fora do Alvo"), use_container_width=True)
-        c3.button("⚽ Gol", key=f"goal_{key_prefix}_{p}", on_click=record_event, args=("Gol", team_name, p), use_container_width=True)
+        # ######################################
+        # ## INÍCIO DAS SEÇÕES DE AÇÕES ATUALIZADAS ##
+        # ######################################
 
-        st.markdown("##### Passes")
+        st.markdown("##### Ações de Criação")
         c1, c2, c3, c4 = st.columns(4)
-        c1.button("Curto ✓", key=f"psc_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Curto"), use_container_width=True)
-        c2.button("Curto ✗", key=f"psf_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Curto"), use_container_width=True)
-        c3.button("Longo ✓", key=f"plg_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Longo"), use_container_width=True)
-        c4.button("Longo ✗", key=f"plf_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Longo"), use_container_width=True)
-        
+        c1.button("Finalização", key=f"shot_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p), use_container_width=True)
+        c2.button("⚽ Gol", key=f"goal_{key_prefix}_{p}", on_click=record_event, args=("Gol", team_name, p), use_container_width=True)
+        c3.button("Passe Chave", key=f"keypass_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Chave"), use_container_width=True)
+        c4.button("Assistência", key=f"assist_{key_prefix}_{p}", on_click=record_event, args=("Assistência", team_name, p), use_container_width=True)
+
         st.markdown("##### Duelos e Faltas")
         c1, c2, c3, c4 = st.columns(4)
-        c1.button("Drible ✓", key=f"drs_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Certo"), use_container_width=True)
-        c2.button("Perda Posse", key=f"pl_{key_prefix}_{p}", on_click=record_event, args=("Perda de Posse", team_name, p), use_container_width=True)
-        c3.button("Falta Cometida", key=f"fc_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
-        c4.button("Falta Sofrida", key=f"fs_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
+        c1.button("Drible Certo ✓", key=f"drib_ok_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Certo"), use_container_width=True)
+        c2.button("Drible Errado ✗", key=f"drib_fail_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Errado"), use_container_width=True)
+        c3.button("Falta Cometida", key=f"foul_c_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
+        c4.button("Falta Sofrida", key=f"foul_s_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
 
         st.markdown("##### Ações Defensivas")
-        c1, c2, c3 = st.columns(3)
-        c1.button("Desarme", key=f"tkl_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("Desarme", key=f"tackle_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
         c2.button("Interceptação", key=f"int_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Interceptação"), use_container_width=True)
-        c3.button("Corte", key=f"clr_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
+        c3.button("Corte", key=f"clear_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
+        c4.button("Drible Sofrido", key=f"drib_past_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Drible Sofrido"), use_container_width=True)
+        
+        st.markdown("##### Disciplina e Observações")
+        c1, c2 = st.columns(2)
+        c1.button("🟨 C. Amarelo", key=f"yellow_card_{key_prefix}_{p}", on_click=record_event, args=("Cartão", team_name, p, "Amarelo"), use_container_width=True)
+        c2.button("🟥 C. Vermelho", key=f"red_card_{key_prefix}_{p}", on_click=record_event, args=("Cartão", team_name, p, "Vermelho"), use_container_width=True)
+        
+        st.text_input("Observação:", key=f"obs_text_{key_prefix}_{p}", placeholder="Digite uma observação aqui...")
+        st.button("Salvar Obs.", key=f"obs_save_{key_prefix}_{p}", on_click=record_event, args=("Observação", team_name, p), use_container_width=True)
+        
+        # ####################################
+        # ## FIM DAS SEÇÕES DE AÇÕES ATUALIZADAS ##
+        # ####################################
 
     with tab1: create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
     with tab2: create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
