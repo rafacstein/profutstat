@@ -5,7 +5,7 @@ from datetime import datetime
 import io
 
 # --- CONFIGURAÇÃO DA PÁGINA E INICIALIZAÇÃO DO ESTADO ---
-st.set_page_config(layout="wide", page_title="Scout Match Tracker")
+st.set_page_config(layout="wide", page_title="ProFutStat Match Tracker")
 
 # Dicionário para inicialização limpa e completa do session_state
 initial_state = {
@@ -17,8 +17,7 @@ initial_state = {
     'registered_players_a': pd.DataFrame(columns=["Number", "Name"]),
     'registered_players_b': pd.DataFrame(columns=["Number", "Name"]),
     'youtube_url': "",
-    # Novas variáveis para controle de posse de bola
-    'possession_team': None, # 'team_a', 'team_b', ou None
+    'possession_team': None,
     'possession_start_time': 0,
     'team_a_possession_seconds': 0.0,
     'team_b_possession_seconds': 0.0,
@@ -37,26 +36,20 @@ def get_current_time():
 def start_timer():
     if st.session_state.timer_start is None:
         st.session_state.timer_start = time.time()
-        # Inicia a contagem de posse se um time já tiver a bola
         if st.session_state.possession_team:
             st.session_state.possession_start_time = time.time()
 
 def pause_timer():
     if st.session_state.timer_start:
-        # Pausa o cronômetro principal
         st.session_state.paused_time += time.time() - st.session_state.timer_start
         st.session_state.timer_start = None
-        # Pausa a contagem de posse
         update_possession_time()
         st.session_state.possession_start_time = 0
 
 def reset_timer():
-    # Reseta o timer
     st.session_state.timer_start = None
     st.session_state.paused_time = 0
-    # Reseta os dados da partida
     st.session_state.match_data = pd.DataFrame(columns=initial_state['match_data'].columns)
-    # Reseta a posse de bola
     st.session_state.possession_team = None
     st.session_state.possession_start_time = 0
     st.session_state.team_a_possession_seconds = 0.0
@@ -64,23 +57,19 @@ def reset_timer():
     st.rerun()
 
 def update_possession_time():
-    """Calcula e adiciona o tempo decorrido ao time que tinha a posse."""
     if st.session_state.possession_team and st.session_state.possession_start_time > 0:
         elapsed = time.time() - st.session_state.possession_start_time
         if st.session_state.possession_team == 'team_a':
             st.session_state.team_a_possession_seconds += elapsed
         elif st.session_state.possession_team == 'team_b':
             st.session_state.team_b_possession_seconds += elapsed
-        # Reseta o início para o tempo atual para continuar a contagem
         st.session_state.possession_start_time = time.time()
 
 def set_possession(new_team):
-    """Define o novo time com posse de bola e atualiza os contadores."""
-    if st.session_state.timer_start is None: # Não faz nada se o jogo estiver pausado
+    if st.session_state.timer_start is None:
         st.warning("Inicie o cronômetro para controlar a posse de bola.")
         return
-        
-    update_possession_time() # Atualiza o tempo do time anterior
+    update_possession_time()
     st.session_state.possession_team = new_team
     if new_team is not None:
         st.session_state.possession_start_time = time.time()
@@ -108,6 +97,19 @@ def record_event(event, team, player_number, event_type="", subtype=""):
     )
     st.rerun()
 
+def generate_excel_by_player():
+    if st.session_state.match_data.empty:
+        return io.BytesIO().getvalue()
+    df = st.session_state.match_data.copy()
+    df['CombinedEvent'] = df.apply(lambda row: ' - '.join(filter(None, [row['Event'], str(row['Type']), str(row['SubType'])])), axis=1)
+    player_stats_pivot = pd.pivot_table(
+        df, index=['Player', 'Team'], columns='CombinedEvent', aggfunc='size', fill_value=0
+    ).reset_index()
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        player_stats_pivot.to_excel(writer, index=False, sheet_name='Stats por Jogador')
+    return output.getvalue()
+
 # ========== BARRA LATERAL (SIDEBAR) ==========
 with st.sidebar:
     st.title("⚙️ Configuração")
@@ -118,59 +120,72 @@ with st.sidebar:
     st.session_state.team_b = st.text_input("Time Visitante:", st.session_state.team_b)
 
     with st.expander(f"Jogadores - {st.session_state.team_a}"):
-        # Formulário de cadastro
-        ...
+        with st.form(f"form_a", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            player_num_a = col1.text_input("Nº", key="num_a")
+            player_name_a = col2.text_input("Nome", key="name_a")
+            if st.form_submit_button(f"Adicionar ao {st.session_state.team_a}", use_container_width=True):
+                if player_num_a and player_name_a:
+                    if player_num_a not in st.session_state.registered_players_a["Number"].values:
+                        new_player = pd.DataFrame([{"Number": player_num_a, "Name": player_name_a}])
+                        st.session_state.registered_players_a = pd.concat([st.session_state.registered_players_a, new_player], ignore_index=True)
+                    else: st.warning(f"Nº {player_num_a} já existe.")
+        st.dataframe(st.session_state.registered_players_a.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
+
     with st.expander(f"Jogadores - {st.session_state.team_b}"):
-        # Formulário de cadastro
-        ...
+        with st.form(f"form_b", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            player_num_b = col1.text_input("Nº", key="num_b")
+            player_name_b = col2.text_input("Nome", key="name_b")
+            if st.form_submit_button(f"Adicionar ao {st.session_state.team_b}", use_container_width=True):
+                if player_num_b and player_name_b:
+                    if player_num_b not in st.session_state.registered_players_b["Number"].values:
+                        new_player = pd.DataFrame([{"Number": player_num_b, "Name": player_name_b}])
+                        st.session_state.registered_players_b = pd.concat([st.session_state.registered_players_b, new_player], ignore_index=True)
+                    else: st.warning(f"Nº {player_num_b} já existe.")
+        st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
 # ========== LAYOUT PRINCIPAL DA INTERFACE ==========
-st.title("⚽ Scout Match Tracker")
+st.title("⚽ ProFutStat Match Tracker")
 
+# --- Controles de Tempo e Posse (Agora no topo) ---
+st.markdown("---")
+current_time = get_current_time()
+display_min = int(current_time // 60)
+display_sec = int(current_time % 60)
+
+col_metric, col_start, col_pause, col_reset = st.columns([1.5, 1, 1, 1])
+col_metric.metric("Tempo", f"{display_min}:{display_sec:02d}")
+col_start.button("▶️ Iniciar", use_container_width=True, on_click=start_timer, disabled=st.session_state.timer_start is not None)
+col_pause.button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
+col_reset.button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
+
+st.markdown("##### Posse de Bola")
+update_possession_time()
+total_possession = st.session_state.team_a_possession_seconds + st.session_state.team_b_possession_seconds
+perc_a = (st.session_state.team_a_possession_seconds / total_possession * 100) if total_possession > 0 else 0
+perc_b = (st.session_state.team_b_possession_seconds / total_possession * 100) if total_possession > 0 else 0
+team_a_label = f"{st.session_state.team_a} ({perc_a:.0f}%)"
+team_b_label = f"{st.session_state.team_b} ({perc_b:.0f}%)"
+
+if st.session_state.possession_team == 'team_a': st.success(f"**Posse: {st.session_state.team_a}**")
+elif st.session_state.possession_team == 'team_b': st.info(f"**Posse: {st.session_state.team_b}**")
+else: st.warning("**Posse: Bola fora ou em disputa**")
+
+pos_c1, pos_c2, pos_c3 = st.columns(3)
+pos_c1.button(team_a_label, key="pos_a", use_container_width=True, on_click=set_possession, args=('team_a',))
+pos_c2.button("Bola Fora / Disputa", key="pos_none", use_container_width=True, on_click=set_possession, args=(None,))
+pos_c3.button(team_b_label, key="pos_b", use_container_width=True, on_click=set_possession, args=('team_b',))
+
+# --- Vídeo e Ações (Agora abaixo dos controles) ---
 main_col1, main_col2 = st.columns([0.55, 0.45])
 
 with main_col1:
+    # O vídeo agora é renderizado aqui, abaixo dos controles
     if st.session_state.youtube_url:
-        st.video(st.session_state.youtube_url)
+        st.video(st.session_state.youtube_url, start_time=0)
     else:
         st.info("⬅️ Cole um link do YouTube na barra lateral para começar.")
-
-    # --- Controles de Tempo e Posse ---
-    st.markdown("---")
-    current_time = get_current_time()
-    display_min = int(current_time // 60)
-    display_sec = int(current_time % 60)
-
-    col_metric, col_start, col_pause, col_reset = st.columns([1.5, 1, 1, 1])
-    col_metric.metric("Tempo", f"{display_min}:{display_sec:02d}")
-    col_start.button("▶️ Iniciar", use_container_width=True, on_click=start_timer, disabled=st.session_state.timer_start is not None)
-    col_pause.button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
-    col_reset.button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
-
-    # --- NOVO: Seção de Posse de Bola ---
-    st.markdown("##### Posse de Bola")
-    update_possession_time() # Garante que o tempo seja calculado a cada rerun
-    
-    total_possession = st.session_state.team_a_possession_seconds + st.session_state.team_b_possession_seconds
-    perc_a = (st.session_state.team_a_possession_seconds / total_possession * 100) if total_possession > 0 else 0
-    perc_b = (st.session_state.team_b_possession_seconds / total_possession * 100) if total_possession > 0 else 0
-
-    team_a_label = f"{st.session_state.team_a} ({perc_a:.0f}%)"
-    team_b_label = f"{st.session_state.team_b} ({perc_b:.0f}%)"
-    
-    # Indicador de posse atual
-    if st.session_state.possession_team == 'team_a':
-        st.success(f"**Posse: {st.session_state.team_a}**")
-    elif st.session_state.possession_team == 'team_b':
-        st.info(f"**Posse: {st.session_state.team_b}**")
-    else:
-        st.warning("**Posse: Bola fora ou em disputa**")
-
-    pos_c1, pos_c2, pos_c3 = st.columns(3)
-    pos_c1.button(team_a_label, key="pos_a", use_container_width=True, on_click=set_possession, args=('team_a',))
-    pos_c2.button("Bola Fora / Disputa", key="pos_none", use_container_width=True, on_click=set_possession, args=(None,))
-    pos_c3.button(team_b_label, key="pos_b", use_container_width=True, on_click=set_possession, args=('team_b',))
-
 
 with main_col2:
     st.header("⚡ Ações da Partida")
@@ -233,9 +248,37 @@ with main_col2:
         c2.button("Falta Cometida", key=f"foul_c_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
         c3.button("Falta Sofrida", key=f"foul_s_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
 
-
     with tab1: create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
     with tab2: create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
+
+# --- NOVO: Seção de Relatórios e Log (Restaurada) ---
+with st.expander("📊 Ver Log de Eventos e Exportar Dados"):
+    if not st.session_state.match_data.empty:
+        st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"], ascending=[False, False]), use_container_width=True, hide_index=True)
+        
+        export_col1, export_col2 = st.columns(2)
+        
+        # Botão para exportar CSV
+        csv_full = st.session_state.match_data.to_csv(index=False).encode('utf-8')
+        export_col1.download_button(
+            label="Exportar Log (CSV)",
+            data=csv_full,
+            file_name=f"log_eventos_{datetime.now():%Y%m%d_%H%M%S}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+        
+        # Botão para exportar Excel
+        excel_data = generate_excel_by_player()
+        export_col2.download_button(
+            label="Exportar Stats (Excel)",
+            data=excel_data,
+            file_name=f"relatorio_jogador_{datetime.now():%Y%m%d_%H%M%S}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    else:
+        st.info("Nenhum evento registrado ainda.")
 
 # --- Atualização Contínua do Cronômetro ---
 if st.session_state.timer_start:
