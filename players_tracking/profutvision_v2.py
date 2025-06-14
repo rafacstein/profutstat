@@ -147,14 +147,24 @@ with main_col1:
     display_min = int(current_time // 60)
     display_sec = int(current_time % 60)
 
-    timer_display_col, timer_controls_col = st.columns([1, 3])
-    timer_display_col.metric("Tempo", f"{display_min}:{display_sec:02d}")
-    
-    with timer_controls_col:
-        btn_cols = st.columns(3)
-        btn_cols[0].button("▶️ Iniciar", use_container_width=True, on_click=start_timer, disabled=st.session_state.timer_start is not None)
-        btn_cols[1].button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
-        btn_cols[2].button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
+    # ###########################
+    # ## INÍCIO DO BLOCO CORRIGIDO ##
+    # ###########################
+    # Criamos todas as colunas necessárias em um único nível para evitar aninhamento ilegal
+    col_metric, col_start, col_pause, col_reset = st.columns([1.5, 1, 1, 1])
+
+    with col_metric:
+        st.metric("Tempo", f"{display_min}:{display_sec:02d}")
+    with col_start:
+        st.button("▶️ Iniciar", use_container_width=True, on_click=start_timer, disabled=st.session_state.timer_start is not None)
+    with col_pause:
+        st.button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
+    with col_reset:
+        st.button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
+    # #########################
+    # ## FIM DO BLOCO CORRIGIDO ##
+    # #########################
+
 
 # --- Coluna da Direita: Abas de Ações ---
 with main_col2:
