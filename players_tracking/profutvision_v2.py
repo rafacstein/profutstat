@@ -143,7 +143,7 @@ with st.sidebar:
         st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
 # ========== LAYOUT PRINCIPAL DA INTERFACE ==========
-st.title("⚽ Scout Match Tracker")
+st.title("⚽ ProFutStat Match Tracking System")
 
 main_col1, main_col2 = st.columns([0.6, 0.4]) # 60% da tela para o vídeo, 40% para as ações
 
