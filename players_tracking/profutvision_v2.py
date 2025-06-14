@@ -5,7 +5,7 @@ from datetime import datetime
 import io
 
 # --- CONFIGURAÇÃO DA PÁGINA E INICIALIZAÇÃO DO ESTADO ---
-st.set_page_config(layout="wide", page_title="ProFutStat Match Tracker")
+st.set_page_config(layout="wide", page_title="Scout Match Tracker")
 
 # Dicionário para inicialização limpa e completa do session_state
 initial_state = {
@@ -16,7 +16,6 @@ initial_state = {
     'paused_time': 0,
     'registered_players_a': pd.DataFrame(columns=["Number", "Name"]),
     'registered_players_b': pd.DataFrame(columns=["Number", "Name"]),
-    'youtube_url': "",
     'possession_team': None,
     'possession_start_time': 0,
     'team_a_possession_seconds': 0.0,
@@ -113,13 +112,11 @@ def generate_excel_by_player():
 # ========== BARRA LATERAL (SIDEBAR) ==========
 with st.sidebar:
     st.title("⚙️ Configuração")
-    st.header("📺 Vídeo da Partida")
-    st.session_state.youtube_url = st.text_input("Cole o link do YouTube aqui:")
-    st.header("📋 Cadastro")
+    st.header("📋 Cadastro de Equipes e Jogadores")
     st.session_state.team_a = st.text_input("Time da Casa:", st.session_state.team_a)
     st.session_state.team_b = st.text_input("Time Visitante:", st.session_state.team_b)
 
-    with st.expander(f"Jogadores - {st.session_state.team_a}"):
+    with st.expander(f"Jogadores - {st.session_state.team_a}", expanded=True):
         with st.form(f"form_a", clear_on_submit=True):
             col1, col2 = st.columns(2)
             player_num_a = col1.text_input("Nº", key="num_a")
@@ -132,7 +129,7 @@ with st.sidebar:
                     else: st.warning(f"Nº {player_num_a} já existe.")
         st.dataframe(st.session_state.registered_players_a.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
-    with st.expander(f"Jogadores - {st.session_state.team_b}"):
+    with st.expander(f"Jogadores - {st.session_state.team_b}", expanded=True):
         with st.form(f"form_b", clear_on_submit=True):
             col1, col2 = st.columns(2)
             player_num_b = col1.text_input("Nº", key="num_b")
@@ -146,9 +143,9 @@ with st.sidebar:
         st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
 # ========== LAYOUT PRINCIPAL DA INTERFACE ==========
-st.title("⚽ ProFutStat Match Tracker")
+st.title("⚽ Scout Match Tracker")
 
-# --- Controles de Tempo e Posse (Agora no topo) ---
+# --- Controles de Tempo e Posse ---
 st.markdown("---")
 current_time = get_current_time()
 display_min = int(current_time // 60)
@@ -177,106 +174,86 @@ pos_c1.button(team_a_label, key="pos_a", use_container_width=True, on_click=set_
 pos_c2.button("Bola Fora / Disputa", key="pos_none", use_container_width=True, on_click=set_possession, args=(None,))
 pos_c3.button(team_b_label, key="pos_b", use_container_width=True, on_click=set_possession, args=('team_b',))
 
-# --- Vídeo e Ações (Agora abaixo dos controles) ---
-main_col1, main_col2 = st.columns([0.55, 0.45])
+st.markdown("---")
 
-with main_col1:
-    # O vídeo agora é renderizado aqui, abaixo dos controles
-    if st.session_state.youtube_url:
-        st.video(st.session_state.youtube_url, start_time=0)
-    else:
-        st.info("⬅️ Cole um link do YouTube na barra lateral para começar.")
+# --- Painéis de Ações Lado a Lado ---
+col_team_a, col_team_b = st.columns(2)
 
-with main_col2:
-    st.header("⚡ Ações da Partida")
-    tab1, tab2 = st.tabs([f"Ações: {st.session_state.team_a}", f"Ações: {st.session_state.team_b}"])
+def create_action_buttons(team_name, registered_players, key_prefix):
+    """Gera o painel completo de botões de ação para um time."""
+    if registered_players.empty:
+        st.warning(f"⬅️ Cadastre jogadores para o '{team_name}' na barra lateral.")
+        return
 
-    def create_action_buttons(team_name, registered_players, key_prefix):
-        if registered_players.empty:
-            st.warning(f"⬅️ Cadastre jogadores para o '{team_name}' na barra lateral.")
-            return
+    def format_func(player_num):
+        player_info = registered_players[registered_players['Number'] == player_num]
+        return f"#{player_num} - {player_info['Name'].iloc[0]}" if not player_info.empty else f"#{player_num}"
 
-        def format_func(player_num):
-            player_info = registered_players[registered_players['Number'] == player_num]
-            return f"#{player_num} - {player_info['Name'].iloc[0]}" if not player_info.empty else f"#{player_num}"
+    selected_player_num = st.selectbox("Selecione o Jogador:", options=registered_players["Number"].tolist(), format_func=format_func, key=f"player_selector_{key_prefix}", label_visibility="collapsed")
+    
+    if not selected_player_num: return
+    p = selected_player_num
+    
+    st.info(f"**Registrando para: {format_func(p)}**")
 
-        selected_player_num = st.selectbox("Selecione o Jogador:", options=registered_players["Number"].tolist(), format_func=format_func, key=f"player_selector_{key_prefix}")
-        
-        if not selected_player_num: return
-        p = selected_player_num
-        
-        st.markdown(f"**Registrando para: {format_func(p)}**")
+    st.markdown("##### Finalização e Criação")
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.button("Gol ⚽", key=f"goal_{key_prefix}_{p}", on_click=record_event, args=("Gol", team_name, p), use_container_width=True)
+    c2.button("Chute G.", key=f"shot_on_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "No Alvo"), use_container_width=True)
+    c3.button("Chute F.", key=f"shot_off_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "Fora do Alvo"), use_container_width=True)
+    c4.button("Assist.", key=f"assist_{key_prefix}_{p}", on_click=record_event, args=("Assistência", team_name, p), use_container_width=True)
+    c5.button("Passe Chave", key=f"keypass_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Chave"), use_container_width=True)
 
-        st.markdown("##### Finalização e Criação")
-        c1, c2, c3, c4, c5 = st.columns(5)
-        c1.button("Gol ⚽", key=f"goal_{key_prefix}_{p}", on_click=record_event, args=("Gol", team_name, p), use_container_width=True)
-        c2.button("Chute G.", key=f"shot_on_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "No Alvo"), use_container_width=True)
-        c3.button("Chute F.", key=f"shot_off_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "Fora do Alvo"), use_container_width=True)
-        c4.button("Assist.", key=f"assist_{key_prefix}_{p}", on_click=record_event, args=("Assistência", team_name, p), use_container_width=True)
-        c5.button("Passe Chave", key=f"keypass_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Chave"), use_container_width=True)
+    st.markdown("##### Passes")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.button("Curto ✓", key=f"p_c_ok_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Curto"), use_container_width=True)
+    c2.button("Curto ✗", key=f"p_c_er_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Curto"), use_container_width=True)
+    c3.button("Longo ✓", key=f"p_l_ok_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Longo"), use_container_width=True)
+    c4.button("Longo ✗", key=f"p_l_er_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Longo"), use_container_width=True)
+    
+    st.markdown("##### Cruzamentos e Duelos")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.button("Cruz. ✓", key=f"cruz_ok_{key_prefix}_{p}", on_click=record_event, args=("Cruzamento", team_name, p, "Certo"), use_container_width=True)
+    c2.button("Cruz. ✗", key=f"cruz_er_{key_prefix}_{p}", on_click=record_event, args=("Cruzamento", team_name, p, "Errado"), use_container_width=True)
+    c3.button("Duelo Aéreo ✓", key=f"aer_ok_{key_prefix}_{p}", on_click=record_event, args=("Duelo Aéreo", team_name, p, "Ganho"), use_container_width=True)
+    c4.button("Duelo Aéreo ✗", key=f"aer_er_{key_prefix}_{p}", on_click=record_event, args=("Duelo Aéreo", team_name, p, "Perdido"), use_container_width=True)
+    
+    st.markdown("##### Dribles")
+    c1, c2, c3 = st.columns(3)
+    c1.button("Drible Certo ✓", key=f"drib_ok_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Certo"), use_container_width=True)
+    c2.button("Drible Errado ✗", key=f"drib_er_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Errado"), use_container_width=True)
+    c3.button("Drible Sofrido", key=f"drib_past_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Drible Sofrido"), use_container_width=True)
 
-        st.markdown("##### Passes")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.button("Curto ✓", key=f"p_c_ok_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Curto"), use_container_width=True)
-        c2.button("Curto ✗", key=f"p_c_er_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Curto"), use_container_width=True)
-        c3.button("Longo ✓", key=f"p_l_ok_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Longo"), use_container_width=True)
-        c4.button("Longo ✗", key=f"p_l_er_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Longo"), use_container_width=True)
-        
-        st.markdown("##### Cruzamentos e Duelos")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.button("Cruz. ✓", key=f"cruz_ok_{key_prefix}_{p}", on_click=record_event, args=("Cruzamento", team_name, p, "Certo"), use_container_width=True)
-        c2.button("Cruz. ✗", key=f"cruz_er_{key_prefix}_{p}", on_click=record_event, args=("Cruzamento", team_name, p, "Errado"), use_container_width=True)
-        c3.button("Duelo Aéreo ✓", key=f"aer_ok_{key_prefix}_{p}", on_click=record_event, args=("Duelo Aéreo", team_name, p, "Ganho"), use_container_width=True)
-        c4.button("Duelo Aéreo ✗", key=f"aer_er_{key_prefix}_{p}", on_click=record_event, args=("Duelo Aéreo", team_name, p, "Perdido"), use_container_width=True)
-        
-        st.markdown("##### Dribles")
-        c1, c2, c3 = st.columns(3)
-        c1.button("Drible Certo ✓", key=f"drib_ok_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Certo"), use_container_width=True)
-        c2.button("Drible Errado ✗", key=f"drib_er_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Errado"), use_container_width=True)
-        c3.button("Drible Sofrido", key=f"drib_past_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Drible Sofrido"), use_container_width=True)
+    st.markdown("##### Ações Defensivas")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.button("Desarme", key=f"tackle_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
+    c2.button("Intercept.", key=f"intercept_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Interceptação"), use_container_width=True)
+    c3.button("Corte", key=f"clear_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
+    c4.button("Recuperação", key=f"recover_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Recuperação"), use_container_width=True)
+    
+    st.markdown("##### Geral e Faltas")
+    c1, c2, c3 = st.columns(3)
+    c1.button("Perda de Posse", key=f"poss_lost_{key_prefix}_{p}", on_click=record_event, args=("Perda de Posse", team_name, p), use_container_width=True)
+    c2.button("Falta Cometida", key=f"foul_c_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
+    c3.button("Falta Sofrida", key=f"foul_s_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
 
-        st.markdown("##### Ações Defensivas")
-        c1, c2, c3, c4 = st.columns(4)
-        c1.button("Desarme", key=f"tackle_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
-        c2.button("Intercept.", key=f"intercept_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Interceptação"), use_container_width=True)
-        c3.button("Corte", key=f"clear_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
-        c4.button("Recuperação", key=f"recover_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Recuperação"), use_container_width=True)
-        
-        st.markdown("##### Geral e Faltas")
-        c1, c2, c3 = st.columns(3)
-        c1.button("Perda de Posse", key=f"poss_lost_{key_prefix}_{p}", on_click=record_event, args=("Perda de Posse", team_name, p), use_container_width=True)
-        c2.button("Falta Cometida", key=f"foul_c_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
-        c3.button("Falta Sofrida", key=f"foul_s_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
+with col_team_a:
+    st.header(f"⚡ Ações: {st.session_state.team_a}")
+    create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
 
-    with tab1: create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
-    with tab2: create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
+with col_team_b:
+    st.header(f"⚡ Ações: {st.session_state.team_b}")
+    create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
 
-# --- NOVO: Seção de Relatórios e Log (Restaurada) ---
+# --- Seção de Relatórios e Log ---
 with st.expander("📊 Ver Log de Eventos e Exportar Dados"):
     if not st.session_state.match_data.empty:
         st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"], ascending=[False, False]), use_container_width=True, hide_index=True)
-        
         export_col1, export_col2 = st.columns(2)
-        
-        # Botão para exportar CSV
         csv_full = st.session_state.match_data.to_csv(index=False).encode('utf-8')
-        export_col1.download_button(
-            label="Exportar Log (CSV)",
-            data=csv_full,
-            file_name=f"log_eventos_{datetime.now():%Y%m%d_%H%M%S}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-        
-        # Botão para exportar Excel
+        export_col1.download_button("Exportar Log (CSV)", csv_full, f"log_eventos_{datetime.now():%Y%m%d_%H%M%S}.csv", "text/csv", use_container_width=True)
         excel_data = generate_excel_by_player()
-        export_col2.download_button(
-            label="Exportar Stats (Excel)",
-            data=excel_data,
-            file_name=f"relatorio_jogador_{datetime.now():%Y%m%d_%H%M%S}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        export_col2.download_button("Exportar Stats (Excel)", excel_data, f"relatorio_jogador_{datetime.now():%Y%m%d_%H%M%S}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     else:
         st.info("Nenhum evento registrado ainda.")
 
