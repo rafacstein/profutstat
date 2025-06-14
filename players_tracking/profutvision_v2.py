@@ -200,11 +200,10 @@ with main_col2:
         c4.button("Falta Sofrida", key=f"fs_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
 
         st.markdown("##### Ações Defensivas")
-        c1, c2, c3,c4 = st.columns(4)
+        c1, c2, c3 = st.columns(3)
         c1.button("Desarme", key=f"tkl_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
         c2.button("Interceptação", key=f"int_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Interceptação"), use_container_width=True)
         c3.button("Corte", key=f"clr_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
-        c4.button("Rec. de bola", key=f"clr_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Recuperação de bola"), use_container_width=True)
 
     with tab1: create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
     with tab2: create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
