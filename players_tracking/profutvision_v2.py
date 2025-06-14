@@ -4,118 +4,85 @@ import time
 from datetime import datetime
 import io
 
-# --- Inicialização Robusta do st.session_state ---
-if 'match_data' not in st.session_state:
-    st.session_state.match_data = pd.DataFrame(columns=[
-        "Event", "Minute", "Second", "Team", "Player", "Type", "SubType", "Timestamp"
-    ])
+# --- Configuração da Página e Inicialização Robusta do st.session_state ---
+st.set_page_config(layout="wide", page_title="Scout Match Tracker")
 
-if 'team_a' not in st.session_state:
-    st.session_state.team_a = "Time A"
+# Dicionário para inicialização limpa do session_state
+initial_state = {
+    'match_data': pd.DataFrame(columns=["Event", "Minute", "Second", "Team", "Player", "Type", "SubType", "Timestamp"]),
+    'team_a': "Time A",
+    'team_b': "Time B",
+    'timer_start': None,
+    'paused_time': 0,
+    'playback_speed': 1,
+    'registered_players_a': pd.DataFrame(columns=["Number", "Name"]),
+    'registered_players_b': pd.DataFrame(columns=["Number", "Name"]),
+    'youtube_url': ""
+}
 
-if 'team_b' not in st.session_state:
-    st.session_state.team_b = "Time B"
+for key, value in initial_state.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-if 'timer_start' not in st.session_state:
-    st.session_state.timer_start = None
-
-if 'paused_time' not in st.session_state:
-    st.session_state.paused_time = 0
-
-if 'playback_speed' not in st.session_state:
-    st.session_state.playback_speed = 1
-
-if 'registered_players_a' not in st.session_state:
-    st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"])
-
-if 'registered_players_b' not in st.session_state:
-    st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"])
-
-if 'selected_player_team_a_num' not in st.session_state:
-    st.session_state.selected_player_team_a_num = None
-
-if 'selected_player_team_b_num' not in st.session_state:
-    st.session_state.selected_player_team_b_num = None
-# --- Fim da Inicialização ---
-
-
-# ========== DEFINIÇÕES DE FUNÇÕES ==========
+# ========== FUNÇÕES PRINCIPAIS (CORE) ==========
 def get_current_time():
-    """Calcula e retorna o tempo atual da partida."""
+    """Calcula e retorna o tempo de partida decorrido."""
     if st.session_state.timer_start is None:
-        return st.session_state.paused_time * st.session_state.playback_speed
-    return (time.time() - st.session_state.timer_start) * st.session_state.playback_speed
+        return st.session_state.paused_time
+    return time.time() - st.session_state.timer_start + st.session_state.paused_time
 
 def start_timer():
-    """Inicia ou retoma o cronômetro da partida."""
-    st.session_state.timer_start = time.time() - st.session_state.paused_time
+    """Inicia ou retoma o cronômetro."""
+    if st.session_state.timer_start is None:
+        st.session_state.timer_start = time.time()
 
 def pause_timer():
-    """Pausa o cronômetro da partida."""
+    """Pausa o cronômetro."""
     if st.session_state.timer_start:
-        st.session_state.paused_time = time.time() - st.session_state.timer_start
+        st.session_state.paused_time += time.time() - st.session_state.timer_start
         st.session_state.timer_start = None
 
 def reset_timer():
-    """Reinicia o cronômetro da partida e todos os eventos registrados."""
+    """Reseta o cronômetro e todos os dados da partida."""
     st.session_state.timer_start = None
     st.session_state.paused_time = 0
-    st.session_state.match_data = pd.DataFrame(columns=[
-        "Event", "Minute", "Second", "Team", "Player", "Type", "SubType", "Timestamp"
-    ])
+    st.session_state.match_data = pd.DataFrame(columns=initial_state['match_data'].columns)
     st.rerun()
 
 def record_event(event, team, player_number, event_type="", subtype=""):
-    """Registra um novo evento no DataFrame de dados da partida."""
+    """Registra um evento de jogo para um jogador."""
     current_time = get_current_time()
     minute = int(current_time // 60)
     second = int(current_time % 60)
-    
-    player_name = ""
-    if team == st.session_state.team_a:
-        player_row = st.session_state.registered_players_a[st.session_state.registered_players_a["Number"] == player_number]
-        if not player_row.empty:
-            player_name = player_row["Name"].iloc[0]
-    else:
-        player_row = st.session_state.registered_players_b[st.session_state.registered_players_b["Number"] == player_number]
-        if not player_row.empty:
-            player_name = player_row["Name"].iloc[0]
-            
-    full_player_display = f"#{player_number} {player_name}" if player_name else f"#{player_number} (Nome não encontrado)"
+
+    # Identifica o time e busca o nome do jogador
+    registered_players = st.session_state.registered_players_a if team == st.session_state.team_a else st.session_state.registered_players_b
+    player_row = registered_players[registered_players["Number"] == player_number]
+    player_name = player_row["Name"].iloc[0] if not player_row.empty else "(não cadastrado)"
+    full_player_display = f"#{player_number} {player_name}"
 
     new_event = {
-        "Event": event,
-        "Minute": minute,
-        "Second": second,
-        "Team": team,
-        "Player": full_player_display,
-        "Type": event_type,
-        "SubType": subtype,
-        "Timestamp": time.time()
+        "Event": event, "Minute": minute, "Second": second, "Team": team,
+        "Player": full_player_display, "Type": event_type, "SubType": subtype,
+        "Timestamp": datetime.now()
     }
     
     st.session_state.match_data = pd.concat(
-        [st.session_state.match_data, pd.DataFrame([new_event])],
-        ignore_index=True
+        [st.session_state.match_data, pd.DataFrame([new_event])], ignore_index=True
     )
-    st.rerun()
 
 def generate_excel_by_player():
     """Gera um arquivo Excel com estatísticas agregadas por jogador."""
+    if st.session_state.match_data.empty:
+        return io.BytesIO().getvalue()
+        
     df = st.session_state.match_data.copy()
-    
-    df['CombinedEvent'] = df['Event'].fillna('') + \
-                         df['Type'].apply(lambda x: f" - {x}" if x else "") + \
-                         df['SubType'].apply(lambda x: f" - {x}" if x else "")
+    # Concatena Event, Type e SubType para criar uma coluna de evento combinado
+    df['CombinedEvent'] = df.apply(lambda row: ' - '.join(filter(None, [row['Event'], str(row['Type']), str(row['SubType'])])), axis=1)
 
-    player_stats_pivot = df.pivot_table(
-        index=['Player', 'Team'], 
-        columns='CombinedEvent', 
-        aggfunc='size', 
-        fill_value=0
-    )
-    
-    player_stats_pivot = player_stats_pivot.reset_index()
+    player_stats_pivot = pd.pivot_table(
+        df, index=['Player', 'Team'], columns='CombinedEvent', aggfunc='size', fill_value=0
+    ).reset_index()
 
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -123,276 +90,140 @@ def generate_excel_by_player():
     
     return output.getvalue()
 
-
-# ========== INTERFACE DO USUÁRIO: SEÇÃO DE CADASTRO DE JOGADORES ==========
-def player_registration_section():
-    st.header("📋 Cadastro de Jogadores")
-    registration_col1, registration_col2 = st.columns(2)
-
-    with registration_col1:
-        st.subheader(f"{st.session_state.team_a} - Cadastro")
-        player_num_a = st.text_input("Número do Jogador (Time A):", key="player_num_a_input")
-        player_name_a = st.text_input("Nome do Jogador (Time A):", key="player_name_a_input")
-        if st.button(f"Adicionar Jogador ao {st.session_state.team_a}", key="add_player_a_btn"):
-            if player_num_a and player_name_a:
-                if player_num_a in st.session_state.registered_players_a["Number"].values:
-                    st.warning(f"Jogador com número {player_num_a} já existe no {st.session_state.team_a}.")
-                else:
-                    new_player = pd.DataFrame([{"Number": player_num_a, "Name": player_name_a}])
-                    st.session_state.registered_players_a = pd.concat(
-                        [st.session_state.registered_players_a, new_player], ignore_index=True
-                    )
-                    st.success(f"Jogador #{player_num_a} {player_name_a} adicionado ao {st.session_state.team_a}!")
-            else:
-                st.error("Por favor, preencha o número e o nome do jogador.")
-        
-        st.markdown("---")
-        st.subheader(f"Jogadores de {st.session_state.team_a} Cadastrados:")
-        if not st.session_state.registered_players_a.empty:
-            st.dataframe(st.session_state.registered_players_a.sort_values(by="Number", key=lambda x: x.astype(int)), use_container_width=True)
-            if st.button(f"Limpar Jogadores de {st.session_state.team_a}", key="clear_players_a_btn"):
-                st.session_state.registered_players_a = pd.DataFrame(columns=["Number", "Name"])
-                st.rerun()
-        else:
-            st.info("Nenhum jogador cadastrado para o Time A.")
-
-    with registration_col2:
-        st.subheader(f"{st.session_state.team_b} - Cadastro")
-        player_num_b = st.text_input("Número do Jogador (Time B):", key="player_num_b_input")
-        player_name_b = st.text_input("Nome do Jogador (Time B):", key="player_name_b_input")
-        if st.button(f"Adicionar Jogador ao {st.session_state.team_b}", key="add_player_b_btn"):
-            if player_num_b and player_name_b:
-                if player_num_b in st.session_state.registered_players_b["Number"].values:
-                    st.warning(f"Jogador com número {player_num_b} já existe no {st.session_state.team_b}.")
-                else:
-                    new_player = pd.DataFrame([{"Number": player_num_b, "Name": player_name_b}])
-                    st.session_state.registered_players_b = pd.concat(
-                        [st.session_state.registered_players_b, new_player], ignore_index=True
-                    )
-                    st.success(f"Jogador #{player_num_b} {player_name_b} adicionado ao {st.session_state.team_b}!")
-            else:
-                st.error("Por favor, preencha o número e o nome do jogador.")
-
-        st.markdown("---")
-        st.subheader(f"Jogadores de {st.session_state.team_b} Cadastrados:")
-        if not st.session_state.registered_players_b.empty:
-            st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: x.astype(int)), use_container_width=True)
-            if st.button(f"Limpar Jogadores de {st.session_state.team_b}", key="clear_players_b_btn"):
-                st.session_state.registered_players_b = pd.DataFrame(columns=["Number", "Name"])
-                st.rerun()
-        else:
-            st.info("Nenhum jogador cadastrado para o Time B.")
+# ========== INTERFACE DO USUÁRIO: BARRA LATERAL (SIDEBAR) ==========
+with st.sidebar:
+    st.title("⚙️ Configuração")
     
-    st.markdown("---")
+    st.header("📺 Vídeo da Partida")
+    st.session_state.youtube_url = st.text_input("Cole o link do YouTube aqui:", placeholder="https://www.youtube.com/watch?v=...")
 
-# ========== LAYOUT DA INTERFACE DO USUÁRIO STREAMLIT ==========
-st.set_page_config(layout="wide", page_title="Football Match Tracker")
-st.title("⚽ Football Match Tracker")
+    st.header("📋 Cadastro")
+    st.session_state.team_a = st.text_input("Time da Casa:", st.session_state.team_a)
+    st.session_state.team_b = st.text_input("Time Visitante:", st.session_state.team_b)
 
-player_registration_section()
+    # Formulários de cadastro em expanders para economizar espaço
+    with st.expander(f"Jogadores - {st.session_state.team_a}"):
+        with st.form(f"form_a", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            player_num_a = col1.text_input("Nº", key="num_a")
+            player_name_a = col2.text_input("Nome", key="name_a")
+            submitted = st.form_submit_button(f"Adicionar ao {st.session_state.team_a}", use_container_width=True)
+            if submitted and player_num_a and player_name_a:
+                if player_num_a not in st.session_state.registered_players_a["Number"].values:
+                    new_player = pd.DataFrame([{"Number": player_num_a, "Name": player_name_a}])
+                    st.session_state.registered_players_a = pd.concat([st.session_state.registered_players_a, new_player], ignore_index=True)
+                else:
+                    st.warning(f"Nº {player_num_a} já existe.")
+        st.dataframe(st.session_state.registered_players_a.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
-st.header("⚙️ Controles da Partida")
-control_col1, control_col2 = st.columns(2)
-with control_col1:
-    st.session_state.team_a = st.text_input("Nome do Time da Casa:", st.session_state.team_a, key="team_a_name_input")
-with control_col2:
-    st.session_state.team_b = st.text_input("Nome do Time Visitante:", st.session_state.team_b, key="team_b_name_input")
+    with st.expander(f"Jogadores - {st.session_state.team_b}"):
+        with st.form(f"form_b", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            player_num_b = col1.text_input("Nº", key="num_b")
+            player_name_b = col2.text_input("Nome", key="name_b")
+            submitted = st.form_submit_button(f"Adicionar ao {st.session_state.team_b}", use_container_width=True)
+            if submitted and player_num_b and player_name_b:
+                if player_num_b not in st.session_state.registered_players_b["Number"].values:
+                    new_player = pd.DataFrame([{"Number": player_num_b, "Name": player_name_b}])
+                    st.session_state.registered_players_b = pd.concat([st.session_state.registered_players_b, new_player], ignore_index=True)
+                else:
+                    st.warning(f"Nº {player_num_b} já existe.")
+        st.dataframe(st.session_state.registered_players_b.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
-timer_display_col, timer_controls_col = st.columns([1, 2])
-with timer_display_col:
+# ========== LAYOUT PRINCIPAL DA INTERFACE ==========
+st.title("⚽ Scout Match Tracker")
+
+main_col1, main_col2 = st.columns([0.6, 0.4]) # 60% da tela para o vídeo, 40% para as ações
+
+# --- Coluna da Esquerda: Vídeo e Cronômetro ---
+with main_col1:
+    if st.session_state.youtube_url:
+        st.video(st.session_state.youtube_url)
+    else:
+        st.info("⬅️ Para começar, cole um link do YouTube na barra lateral.")
+
+    # Controles do Cronômetro
     current_time = get_current_time()
     display_min = int(current_time // 60)
     display_sec = int(current_time % 60)
-    st.metric("Tempo de Jogo", f"{display_min}:{display_sec:02d}")
+
+    timer_display_col, timer_controls_col = st.columns([1, 3])
+    timer_display_col.metric("Tempo", f"{display_min}:{display_sec:02d}")
     
-with timer_controls_col:
-    st.session_state.playback_speed = st.radio("Velocidade do Timer:", [1, 2], horizontal=True, index=0, key="playback_speed_radio")
-    timer_col1, timer_col2, timer_col3 = st.columns(3)
-    with timer_col1:
-        if st.button("⏵ Iniciar", use_container_width=True, key="start_timer_btn") and st.session_state.timer_start is None:
-            start_timer()
-    with timer_col2:
-        if st.button("⏸ Pausar", use_container_width=True, key="pause_timer_btn") and st.session_state.timer_start is not None:
-            pause_timer()
-    with timer_col3:
-        if st.button("↻ Resetar Partida", use_container_width=True, key="reset_match_btn"):
-            reset_timer()
-            st.rerun()
+    with timer_controls_col:
+        btn_cols = st.columns(3)
+        btn_cols[0].button("▶️ Iniciar", use_container_width=True, on_click=start_timer, disabled=st.session_state.timer_start is not None)
+        btn_cols[1].button("⏸️ Pausar", use_container_width=True, on_click=pause_timer, disabled=st.session_state.timer_start is None)
+        btn_cols[2].button("🔄 Resetar", use_container_width=True, on_click=reset_timer)
 
-st.header("⚽ Ações da Partida (Por Jogador)")
-player_selection_col1, player_selection_col2 = st.columns(2)
+# --- Coluna da Direita: Abas de Ações ---
+with main_col2:
+    st.header("⚡ Ações da Partida")
+    
+    tab1, tab2 = st.tabs([f"Ações: {st.session_state.team_a}", f"Ações: {st.session_state.team_b}"])
 
-# Coluna de Ações para o Time A
-with player_selection_col1:
-    st.markdown(f"### {st.session_state.team_a} - Ações")
-    player_options_a = ["Selecione um Jogador"] + st.session_state.registered_players_a["Number"].tolist()
-    st.session_state.selected_player_team_a_num = st.selectbox(
-        "Selecione o Jogador:", 
-        options=player_options_a,
-        format_func=lambda x: f"#{x} {st.session_state.registered_players_a[st.session_state.registered_players_a['Number'] == x]['Name'].iloc[0]}" 
-                                if x != "Selecione um Jogador" and not st.session_state.registered_players_a[st.session_state.registered_players_a['Number'] == x].empty
-                                else x,
-        key="player_selector_a"
-    )
+    def create_action_buttons(team_name, registered_players, key_prefix):
+        """Função para gerar a interface de botões de ação para um time."""
+        if registered_players.empty:
+            st.warning(f"⬅️ Cadastre jogadores para o '{team_name}' na barra lateral.")
+            return
 
-    if st.session_state.selected_player_team_a_num and st.session_state.selected_player_team_a_num != "Selecione um Jogador":
-        player_num = st.session_state.selected_player_team_a_num
-        team_name = st.session_state.team_a
-        player_name = st.session_state.registered_players_a[st.session_state.registered_players_a["Number"] == player_num]["Name"].iloc[0]
-        st.markdown(f"**Registrando ações para: #{player_num} {player_name}**")
+        def format_func(player_num):
+            player_info = registered_players[registered_players['Number'] == player_num]
+            return f"#{player_num} - {player_info['Name'].iloc[0]}" if not player_info.empty else f"#{player_num}"
 
-        st.markdown("#### Finalizações")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("No Alvo", key=f"shot_on_a_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "No Alvo"))
-        with col2:
-            st.button("Fora do Alvo", key=f"shot_off_a_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "Fora do Alvo"))
-        with col3:
-            st.button("⚽ Gol", key=f"goal_a_{player_num}", on_click=record_event, args=("Gol", team_name, player_num))
+        selected_player_num = st.selectbox("Selecione o Jogador:", options=registered_players["Number"].tolist(), format_func=format_func, key=f"player_selector_{key_prefix}")
         
-        st.markdown("#### Passes")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.button("Curto ✓", key=f"short_pass_a_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Curto"))
-        with col2:
-            st.button("Curto ✗", key=f"short_pass_a_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Curto"))
-        with col3:
-            st.button("Longo ✓", key=f"long_pass_a_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Longo"))
-        with col4:
-            st.button("Longo ✗", key=f"long_pass_a_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Longo"))
+        if not selected_player_num: return
 
-        st.markdown("#### Dribles & Perdas")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Drible Certo ✓", key=f"drible_success_a_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Certo"))
-        with col2:
-            st.button("Drible Errado ✗", key=f"drible_fail_a_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Errado"))
-        with col3:
-            st.button("Perda de Posse", key=f"possession_lost_a_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
-
-        st.markdown("#### Duelos Aéreos")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.button("Vencido", key=f"aerial_won_a_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Vencido"))
-        with col2:
-            st.button("Perdido", key=f"aerial_lost_a_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Perdido"))
-
-        st.markdown("#### Ações Defensivas / Outras")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Desarme", key=f"tackle_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
-            st.button("Interceptação", key=f"interception_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
-            st.button("Corte", key=f"clearance_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
-        with col2:
-            st.button("Falta Cometida", key=f"foul_committed_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
-            st.button("Falta Sofrida", key=f"foul_suffered_a_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
-        with col3:
-            st.button("Drible Sofrido", key=f"dribbled_past_a_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
-            st.button("Erro p/ Finalização", key=f"error_shot_a_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
-    else:
-        st.info("Selecione um jogador do Time da Casa para registrar ações.")
-
-# Coluna de Ações para o Time B
-with player_selection_col2:
-    st.markdown(f"### {st.session_state.team_b} - Ações")
-    player_options_b = ["Selecione um Jogador"] + st.session_state.registered_players_b["Number"].tolist()
-    st.session_state.selected_player_team_b_num = st.selectbox(
-        "Selecione o Jogador:", 
-        options=player_options_b,
-        format_func=lambda x: f"#{x} {st.session_state.registered_players_b[st.session_state.registered_players_b['Number'] == x]['Name'].iloc[0]}" 
-                                if x != "Selecione um Jogador" and not st.session_state.registered_players_b[st.session_state.registered_players_b['Number'] == x].empty
-                                else x,
-        key="player_selector_b"
-    )
-
-    if st.session_state.selected_player_team_b_num and st.session_state.selected_player_team_b_num != "Selecione um Jogador":
-        player_num = st.session_state.selected_player_team_b_num
-        team_name = st.session_state.team_b
-        player_name = st.session_state.registered_players_b[st.session_state.registered_players_b["Number"] == player_num]["Name"].iloc[0]
-        st.markdown(f"**Registrando ações para: #{player_num} {player_name}**")
-
-        st.markdown("#### Finalizações")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("No Alvo", key=f"shot_on_b_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "No Alvo"))
-        with col2:
-            st.button("Fora do Alvo", key=f"shot_off_b_{player_num}", on_click=record_event, args=("Finalização", team_name, player_num, "Fora do Alvo"))
-        with col3:
-            st.button("⚽ Gol", key=f"goal_b_{player_num}", on_click=record_event, args=("Gol", team_name, player_num))
+        p = selected_player_num # Alias para encurtar
+        st.markdown(f"**Registrando para: {format_func(p)}**")
         
-        st.markdown("#### Passes")
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.button("Curto ✓", key=f"short_pass_b_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Curto"))
-        with col2:
-            st.button("Curto ✗", key=f"short_pass_b_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Curto"))
-        with col3:
-            st.button("Longo ✓", key=f"long_pass_b_success_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Certo", "Longo"))
-        with col4:
-            st.button("Longo ✗", key=f"long_pass_b_fail_{player_num}", on_click=record_event, args=("Passe", team_name, player_num, "Errado", "Longo"))
+        st.markdown("##### Finalização e Gol")
+        c1, c2, c3 = st.columns(3)
+        c1.button("No Alvo", key=f"son_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "No Alvo"), use_container_width=True)
+        c2.button("Fora", key=f"soff_{key_prefix}_{p}", on_click=record_event, args=("Finalização", team_name, p, "Fora do Alvo"), use_container_width=True)
+        c3.button("⚽ Gol", key=f"goal_{key_prefix}_{p}", on_click=record_event, args=("Gol", team_name, p), use_container_width=True)
 
-        st.markdown("#### Dribles & Perdas")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Drible Certo ✓", key=f"drible_success_b_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Certo"))
-        with col2:
-            st.button("Drible Errado ✗", key=f"drible_fail_b_{player_num}", on_click=record_event, args=("Drible", team_name, player_num, "Errado"))
-        with col3:
-            st.button("Perda de Posse", key=f"possession_lost_b_{player_num}", on_click=record_event, args=("Perda de Posse", team_name, player_num))
+        st.markdown("##### Passes")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("Curto ✓", key=f"psc_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Curto"), use_container_width=True)
+        c2.button("Curto ✗", key=f"psf_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Curto"), use_container_width=True)
+        c3.button("Longo ✓", key=f"plg_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Certo", "Longo"), use_container_width=True)
+        c4.button("Longo ✗", key=f"plf_{key_prefix}_{p}", on_click=record_event, args=("Passe", team_name, p, "Errado", "Longo"), use_container_width=True)
+        
+        st.markdown("##### Duelos e Faltas")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.button("Drible ✓", key=f"drs_{key_prefix}_{p}", on_click=record_event, args=("Drible", team_name, p, "Certo"), use_container_width=True)
+        c2.button("Perda Posse", key=f"pl_{key_prefix}_{p}", on_click=record_event, args=("Perda de Posse", team_name, p), use_container_width=True)
+        c3.button("Falta Cometida", key=f"fc_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Cometida"), use_container_width=True)
+        c4.button("Falta Sofrida", key=f"fs_{key_prefix}_{p}", on_click=record_event, args=("Falta", team_name, p, "Sofrida"), use_container_width=True)
 
-        st.markdown("#### Duelos Aéreos")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.button("Vencido", key=f"aerial_won_b_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Vencido"))
-        with col2:
-            st.button("Perdido", key=f"aerial_lost_b_{player_num}", on_click=record_event, args=("Duelo Aéreo", team_name, player_num, "Perdido"))
+        st.markdown("##### Ações Defensivas")
+        c1, c2, c3,c4 = st.columns(4)
+        c1.button("Desarme", key=f"tkl_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Desarme"), use_container_width=True)
+        c2.button("Interceptação", key=f"int_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Interceptação"), use_container_width=True)
+        c3.button("Corte", key=f"clr_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Corte"), use_container_width=True)
+        c4.button("Rec. de bola", key=f"clr_{key_prefix}_{p}", on_click=record_event, args=("Defesa", team_name, p, "Recuperação de bola"), use_container_width=True)
 
-        st.markdown("#### Ações Defensivas / Outras")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.button("Desarme", key=f"tackle_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Desarme"))
-            st.button("Interceptação", key=f"interception_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Interceptação"))
-            st.button("Corte", key=f"clearance_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Corte"))
-        with col2:
-            st.button("Falta Cometida", key=f"foul_committed_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Cometida"))
-            st.button("Falta Sofrida", key=f"foul_suffered_b_{player_num}", on_click=record_event, args=("Falta", team_name, player_num, "Sofrida"))
-        with col3:
-            st.button("Drible Sofrido", key=f"dribbled_past_b_{player_num}", on_click=record_event, args=("Defesa", team_name, player_num, "Drible Sofrido"))
-            st.button("Erro p/ Finalização", key=f"error_shot_b_{player_num}", on_click=record_event, args=("Erro", team_name, player_num, "Erro que levou a finalização"))
-    else:
-        st.info("Selecione um jogador do Time Visitante para registrar ações.")
+    with tab1: create_action_buttons(st.session_state.team_a, st.session_state.registered_players_a, "a")
+    with tab2: create_action_buttons(st.session_state.team_b, st.session_state.registered_players_b, "b")
 
-# Seção de Relatórios de Dados
-st.header("📊 Relatório da Partida")
-if not st.session_state.match_data.empty:
-    st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"]), use_container_width=True)
-    
-    export_col1, export_col2 = st.columns(2)
-    
-    with export_col1:
+# --- Seção de Relatórios e Log (Oculta por padrão) ---
+with st.expander("📊 Ver Log de Eventos e Exportar Dados"):
+    if not st.session_state.match_data.empty:
+        st.dataframe(st.session_state.match_data.sort_values(["Minute", "Second"], ascending=[False, False]), use_container_width=True, hide_index=True)
+        
+        export_col1, export_col2 = st.columns(2)
         csv_full = st.session_state.match_data.to_csv(index=False).encode('utf-8')
-        st.download_button(
-           label="Exportar Log de Eventos (CSV)",
-           data=csv_full,
-           file_name=f"log_eventos_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-           mime="text/csv",
-           key="export_full_csv_btn",
-           use_container_width=True
-        )
-
-    with export_col2:
+        export_col1.download_button("Exportar Log (CSV)", csv_full, f"log_eventos_{datetime.now():%Y%m%d_%H%M%S}.csv", "text/csv", use_container_width=True)
+        
         excel_data = generate_excel_by_player()
-        st.download_button(
-            label="Exportar para Excel (por Jogador)",
-            data=excel_data,
-            file_name=f"relatorio_por_jogador_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="export_excel_player_stats_btn",
-            use_container_width=True
-        )
-else:
-    st.info("Nenhum evento registrado ainda. Cadastre jogadores e inicie o tracking!")
+        export_col2.download_button("Exportar Stats (Excel)", excel_data, f"relatorio_jogador_{datetime.now():%Y%m%d_%H%M%S}.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+    else:
+        st.info("Nenhum evento registrado ainda.")
 
+# --- Lógica de Rerun para o Cronômetro (executa a cada segundo se o timer estiver ativo) ---
 if st.session_state.timer_start:
     time.sleep(1)
     st.rerun()
