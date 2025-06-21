@@ -110,7 +110,7 @@ def get_performance_data(current_game, player_name, df_data):
             elif current_val > avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Piora (↑)' # Aumentou um evento ruim
             else:
-                comparison_df.loc[index, 'Mudança'] = 'Mantém ( - )' # Alterado para PDF
+                comparison_df.loc[index, 'Mudança'] = 'Mantém (—)' # Usar traço longo para UI
         else:
             # Para eventos positivos, mais é melhor (aumento = melhora)
             if current_val > avg_val:
@@ -118,7 +118,7 @@ def get_performance_data(current_game, player_name, df_data):
             elif current_val < avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Piora (↓)'
             else:
-                comparison_df.loc[index, 'Mudança'] = 'Mantém ( - )' # Alterado para PDF
+                comparison_df.loc[index, 'Mudança'] = 'Mantém (—)' # Usar traço longo para UI
 
     return comparison_df
 
@@ -141,7 +141,7 @@ class PDF(FPDF):
 
     def add_table(self, df_to_print):
         # Defina as larguras das colunas - ajuste conforme necessário
-        col_widths = [80, 30, 30, 30] # Larguras em mm (Ajustado se necessário)
+        col_widths = [80, 30, 30, 30] # Larguras em mm
 
         # Cabeçalho da Tabela
         self.set_font('Arial', 'B', 9)
@@ -151,13 +151,10 @@ class PDF(FPDF):
 
         # Linhas da Tabela
         self.set_font('Arial', '', 8)
-        # Use str() para garantir que todos os valores sejam strings antes de imprimir no PDF
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                # Usar encode('latin1', 'replace').decode('latin1') é uma gambiarra
-                # para lidar com caracteres não-latin1, mas é melhor evitar se o char
-                # puder ser substituído. Aqui, já substituímos o '—'.
-                # Garantir que tudo é string antes de tentar qualquer encoding.
+                # Importante: Garantir que o item seja uma string antes de passá-lo
+                # e que não contenha caracteres problemáticos.
                 self.cell(col_widths[i], 6, str(item), 1, 0, 'C')
             self.ln()
         self.ln(5)
@@ -173,19 +170,20 @@ def create_pdf_report(player_name, game_name, performance_df):
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
 
-    # Adicionar tabela resumo da performance
-    pdf.chapter_title('Resumo da Performance por Evento:')
-    # Selecionar colunas para imprimir no PDF e formatar 'Média'
+    # Preparar DataFrame para PDF: substituir caracteres problemáticos
     df_for_pdf = performance_df[['Evento', 'Atual', 'Média', 'Mudança']].copy()
     df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
 
+    # Substituir setas e traço longo por equivalentes ASCII para o PDF
+    df_for_pdf['Mudança'] = df_for_pdf['Mudança'].str.replace('↑', '(UP)').str.replace('↓', '(DOWN)').str.replace('—', '(-)')
+
+
+    # Adicionar tabela resumo da performance
+    pdf.chapter_title('Resumo da Performance por Evento:')
     pdf.add_table(df_for_pdf)
 
     # Saída como bytes
     pdf_output = BytesIO()
-    # Ensure all strings are latin1 compatible or provide font with unicode support.
-    # By changing '—' to '-', we've addressed the main issue.
-    # If other special chars appear, you might need to install a TTF font and add it to FPDF.
     pdf.output(pdf_output)
     pdf_output.seek(0)
     return pdf_output.getvalue()
@@ -218,38 +216,14 @@ if selected_game and selected_player:
     for index, row in performance_data.iterrows():
         with cols[col_idx]:
             delta_text = row['Mudança']
-            delta_color = "off" # Desativa cor padrão, vamos controlar pelo texto
+            delta_color = "off" # Desativa cor padrão, Streamlit Delta não se comporta como esperado com delta customizado
 
-            # Streamlit `st.metric` colors:
-            # "normal" (verde para delta positivo, vermelho para negativo)
-            # "inverse" (vermelho para delta positivo, verde para negativo)
-            # "off" (sem cor)
-
-            # Lógica para cor do delta no Streamlit UI
+            # Lógica para cor do delta no Streamlit UI (baseada nas setas, não no valor numérico direto do delta)
             if 'Melhora' in delta_text:
-                # Se é melhora de um evento positivo (ex: mais passes certos), é normal (verde)
-                # Se é melhora de um evento negativo (ex: menos faltas cometidas), é normal (verde)
-                # Streamlit metric delta_color="normal" faz delta positivo ser verde.
-                # Como a nossa "Melhora (↓)" para eventos negativos é de fato uma redução,
-                # e a "Melhora (↑)" para eventos positivos é um aumento,
-                # precisamos ser explícitos: se o valor 'Atual' em relação à 'Média'
-                # é o que define a cor, e Streamlit usa `value` e `delta`.
-                # Como estamos usando um delta customizado (`delta=f"{...} | {delta_text}"`),
-                # a cor do `st.metric` se baseará na diferença numérica entre `value` e `delta` se `delta_color` não for "off".
-                # Para ter controle total, é melhor deixar `delta_color="off"` e gerenciar a seta e texto na `delta_text`.
-
-                # Para visualmente ter verde para MELHORA e vermelho para PIORA,
-                # vamos usar a lógica do `delta_color` para coincidir com a seta.
-                # Se o delta numérico (Atual - Média) é positivo e a seta é ↑, normal (verde)
-                # Se o delta numérico (Atual - Média) é negativo e a seta é ↓, normal (verde)
-                # ... mas para o usuário ver a cor certa com a seta certa:
-                if '↑' in delta_text: # Significa que Atual > Média e é Melhora (positivo) OU Atual > Média e é Piora (negativo)
-                    delta_color = "normal" if row['Evento'] not in NEGATIVE_EVENTS else "inverse"
-                elif '↓' in delta_text: # Significa que Atual < Média e é Piora (positivo) OU Atual < Média e é Melhora (negativo)
-                    delta_color = "inverse" if row['Evento'] not in NEGATIVE_EVENTS else "normal"
-                else: # Mantém
-                    delta_color = "off"
-
+                delta_color = "normal" # Verde para Melhora
+            elif 'Piora' in delta_text:
+                delta_color = "inverse" # Vermelho para Piora
+            # 'Mantém' fica "off" (sem cor)
 
             st.metric(
                 label=row['Evento'],
@@ -265,7 +239,7 @@ if selected_game and selected_player:
     st.download_button(
         label="📄 Exportar Relatório como PDF",
         data=pdf_bytes,
-        file_name=f"Relatorio_Performance_{selected_player}_{selected_game.replace(' ', '_').replace(':', '')}.pdf",
+        file_name=f"Relatorio_Performance_{selected_player}_{selected_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf", # Adicionado .replace('/', '_')
         mime="application/pdf"
     )
 
