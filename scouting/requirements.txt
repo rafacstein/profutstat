@@ -12,4 +12,4 @@ faiss-cpu
 openpyxl
 xlsxwriter
 plotly-express
-pdf2
+FPDF
