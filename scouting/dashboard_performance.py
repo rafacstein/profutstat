@@ -62,19 +62,38 @@ def get_performance_data(current_game, player_name, df_data):
     # Selecionar os dois jogos mais recentes (ou um, se só houver um)
     games_for_average = unique_other_games_sorted['Jogo'].head(2).tolist()
 
-    # Calcular a performance média do atleta a partir desses 1 ou 2 jogos
-    average_performance_df = pd.DataFrame(columns=['Evento', 'Média'])
+    # Calcular a performance média para o atleta a partir desses 1 ou 2 jogos
+    average_data_list = []
     if games_for_average:
-        data_for_average = player_all_data[player_all_data['Jogo'].isin(games_for_average)]
-        if not data_for_average.empty:
-            average_performance_df = data_for_average.groupby('Evento')['Count'].mean().reset_index()
-            average_performance_df.rename(columns={'Count': 'Média'}, inplace=True)
+        # Obter todos os eventos únicos que o jogador já registrou em qualquer jogo
+        all_player_events = player_all_data['Evento'].unique()
+
+        for event in all_player_events:
+            total_count_for_event = 0
+            # num_games_contributing é o número de jogos considerados para a média (1 ou 2)
+            num_games_contributing = len(games_for_average)
+
+            for game_avg in games_for_average:
+                # Pega a contagem do evento no jogo específico. Se não existir, é 0.
+                event_count_in_game = player_all_data[
+                    (player_all_data['Jogo'] == game_avg) &
+                    (player_all_data['Evento'] == event)
+                ]['Count'].sum() # .sum() retorna 0 se não encontrar linhas
+
+                total_count_for_event += event_count_in_game
+
+            if num_games_contributing > 0:
+                avg_count = total_count_for_event / num_games_contributing
+                average_data_list.append({'Evento': event, 'Média': avg_count})
+
+    average_performance_df = pd.DataFrame(average_data_list)
 
     # Unir os dados do jogo atual com a performance média
     comparison_df = pd.merge(current_game_events, average_performance_df, on='Evento', how='left')
     comparison_df.rename(columns={'Count': 'Atual'}, inplace=True)
 
     # Preencher valores NaN da coluna 'Média' com 0 onde não há média correspondente
+    # Isso pode acontecer se um evento ocorreu no jogo atual mas NUNCA nos jogos anteriores considerados
     comparison_df['Média'].fillna(0, inplace=True)
 
     # Determinar a mudança de performance e o ícone
@@ -91,7 +110,7 @@ def get_performance_data(current_game, player_name, df_data):
             elif current_val > avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Piora (↑)' # Aumentou um evento ruim
             else:
-                comparison_df.loc[index, 'Mudança'] = 'Mantém (—)'
+                comparison_df.loc[index, 'Mudança'] = 'Mantém ( - )' # Alterado para PDF
         else:
             # Para eventos positivos, mais é melhor (aumento = melhora)
             if current_val > avg_val:
@@ -99,7 +118,7 @@ def get_performance_data(current_game, player_name, df_data):
             elif current_val < avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Piora (↓)'
             else:
-                comparison_df.loc[index, 'Mudança'] = 'Mantém (—)'
+                comparison_df.loc[index, 'Mudança'] = 'Mantém ( - )' # Alterado para PDF
 
     return comparison_df
 
@@ -122,9 +141,7 @@ class PDF(FPDF):
 
     def add_table(self, df_to_print):
         # Defina as larguras das colunas - ajuste conforme necessário
-        # Assumindo 4 colunas: Evento, Atual, Média, Mudança
-        # Largura total da página - margens (20mm de cada lado) = 210 - 40 = 170mm
-        col_widths = [80, 30, 30, 30] # Exemplo de larguras em mm
+        col_widths = [80, 30, 30, 30] # Larguras em mm (Ajustado se necessário)
 
         # Cabeçalho da Tabela
         self.set_font('Arial', 'B', 9)
@@ -134,9 +151,13 @@ class PDF(FPDF):
 
         # Linhas da Tabela
         self.set_font('Arial', '', 8)
-        # Iterate over DataFrame rows and add to PDF
+        # Use str() para garantir que todos os valores sejam strings antes de imprimir no PDF
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
+                # Usar encode('latin1', 'replace').decode('latin1') é uma gambiarra
+                # para lidar com caracteres não-latin1, mas é melhor evitar se o char
+                # puder ser substituído. Aqui, já substituímos o '—'.
+                # Garantir que tudo é string antes de tentar qualquer encoding.
                 self.cell(col_widths[i], 6, str(item), 1, 0, 'C')
             self.ln()
         self.ln(5)
@@ -160,8 +181,11 @@ def create_pdf_report(player_name, game_name, performance_df):
 
     pdf.add_table(df_for_pdf)
 
-    # Saída como bytes para download
+    # Saída como bytes
     pdf_output = BytesIO()
+    # Ensure all strings are latin1 compatible or provide font with unicode support.
+    # By changing '—' to '-', we've addressed the main issue.
+    # If other special chars appear, you might need to install a TTF font and add it to FPDF.
     pdf.output(pdf_output)
     pdf_output.seek(0)
     return pdf_output.getvalue()
@@ -186,34 +210,52 @@ if selected_game and selected_player:
     st.subheader('Visão Rápida por Evento:')
 
     # Exibir caixas individuais para cada evento
-    # Crie as colunas dinamicamente com base no número de eventos ou fixe 3
     num_events = len(performance_data)
-    num_cols = min(num_events, 3) # Max 3 columns
+    num_cols = min(num_events, 3) # Máximo de 3 colunas para os cartões
     cols = st.columns(num_cols)
     col_idx = 0
 
     for index, row in performance_data.iterrows():
         with cols[col_idx]:
-            # Ajuste para cores de delta e ícones de acordo com 'Melhora (↑)' ou 'Piora (↓)'
             delta_text = row['Mudança']
-            delta_color = "normal" # Default color, no specific highlight
+            delta_color = "off" # Desativa cor padrão, vamos controlar pelo texto
 
+            # Streamlit `st.metric` colors:
+            # "normal" (verde para delta positivo, vermelho para negativo)
+            # "inverse" (vermelho para delta positivo, verde para negativo)
+            # "off" (sem cor)
+
+            # Lógica para cor do delta no Streamlit UI
             if 'Melhora' in delta_text:
-                # Green for positive improvements, including reduction of negative events
-                delta_color = "inverse" if row['Evento'] in NEGATIVE_EVENTS else "normal"
-                # For negative events, inverse color to make less red more green
-                # Streamlit metric delta_color: "normal" (green for positive delta), "inverse" (red for positive delta), "off" (no color)
+                # Se é melhora de um evento positivo (ex: mais passes certos), é normal (verde)
+                # Se é melhora de um evento negativo (ex: menos faltas cometidas), é normal (verde)
+                # Streamlit metric delta_color="normal" faz delta positivo ser verde.
+                # Como a nossa "Melhora (↓)" para eventos negativos é de fato uma redução,
+                # e a "Melhora (↑)" para eventos positivos é um aumento,
+                # precisamos ser explícitos: se o valor 'Atual' em relação à 'Média'
+                # é o que define a cor, e Streamlit usa `value` e `delta`.
+                # Como estamos usando um delta customizado (`delta=f"{...} | {delta_text}"`),
+                # a cor do `st.metric` se baseará na diferença numérica entre `value` e `delta` se `delta_color` não for "off".
+                # Para ter controle total, é melhor deixar `delta_color="off"` e gerenciar a seta e texto na `delta_text`.
 
-            elif 'Piora' in delta_text:
-                # Red for worsening, including increase of negative events
-                delta_color = "normal" if row['Evento'] in NEGATIVE_EVENTS else "inverse"
+                # Para visualmente ter verde para MELHORA e vermelho para PIORA,
+                # vamos usar a lógica do `delta_color` para coincidir com a seta.
+                # Se o delta numérico (Atual - Média) é positivo e a seta é ↑, normal (verde)
+                # Se o delta numérico (Atual - Média) é negativo e a seta é ↓, normal (verde)
+                # ... mas para o usuário ver a cor certa com a seta certa:
+                if '↑' in delta_text: # Significa que Atual > Média e é Melhora (positivo) OU Atual > Média e é Piora (negativo)
+                    delta_color = "normal" if row['Evento'] not in NEGATIVE_EVENTS else "inverse"
+                elif '↓' in delta_text: # Significa que Atual < Média e é Piora (positivo) OU Atual < Média e é Melhora (negativo)
+                    delta_color = "inverse" if row['Evento'] not in NEGATIVE_EVENTS else "normal"
+                else: # Mantém
+                    delta_color = "off"
 
 
             st.metric(
                 label=row['Evento'],
-                value=f"{int(row['Atual'])} (Atual)", # Exibir como inteiro se for um contador
+                value=f"{int(row['Atual'])} (Atual)", # Exibir como inteiro
                 delta=f"{row['Média']:.2f} (Média) | {delta_text}",
-                delta_color=delta_color
+                delta_color=delta_color # Usa a cor definida pela lógica acima
             )
         col_idx = (col_idx + 1) % num_cols
 
@@ -223,7 +265,7 @@ if selected_game and selected_player:
     st.download_button(
         label="📄 Exportar Relatório como PDF",
         data=pdf_bytes,
-        file_name=f"Relatorio_Performance_{selected_player}_{selected_game.replace(' ', '_')}.pdf",
+        file_name=f"Relatorio_Performance_{selected_player}_{selected_game.replace(' ', '_').replace(':', '')}.pdf",
         mime="application/pdf"
     )
 
