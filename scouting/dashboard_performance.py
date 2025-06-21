@@ -21,16 +21,11 @@ def load_data(url):
 df = load_data(GITHUB_CSV_URL)
 
 # Pré-processamento dos dados
-# 1. Agrupar por Jogo, Player, Evento e somar o Count
 df_grouped = df.groupby(['Jogo', 'Player', 'Evento'])['Count'].sum().reset_index()
 
-# 2. Calcular a média GLOBAL de cada Evento para cada Player (FIXA)
+# Calcular a média GLOBAL de cada Evento para cada Player (FIXA)
 player_overall_averages = df_grouped.groupby(['Player', 'Evento'])['Count'].mean().reset_index()
 player_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
-
-# As variáveis player_game_totals e player_overall_avg_total_events não são mais necessárias
-# pois o card de resumo geral (somatório) será removido.
-
 
 # Obter jogos e jogadores únicos para os filtros
 all_games = sorted(df_grouped['Jogo'].unique().tolist())
@@ -108,7 +103,7 @@ class PDF(FPDF):
         self.ln(5)
 
 
-def create_pdf_report(player_name, game_name, performance_df): # Removido args de total de eventos
+def create_pdf_report(player_name, game_name, performance_df):
     pdf = PDF()
     pdf.add_page()
 
@@ -116,10 +111,6 @@ def create_pdf_report(player_name, game_name, performance_df): # Removido args d
     pdf.cell(0, 10, f'Jogador: {player_name}', 0, 1, 'L')
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
-
-    # O resumo geral do PDF pode ser apenas uma repetição da tabela de cards,
-    # ou podemos decidir não ter um "resumo geral" no PDF se a ideia é apenas os cards.
-    # Por simplicidade e consistência com a UI, o PDF terá a tabela detalhada por evento.
 
     df_for_pdf = performance_df[['Evento', 'Atual', 'Média', 'Mudança']].copy()
     df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
@@ -148,8 +139,8 @@ if selected_game and selected_player:
 
     st.write('---') # Separador após o título
 
-    # --- CARDS DE PERFORMANCE POR EVENTO (Agora são o "Resumo Detalhado") ---
-    st.markdown('**Resumo Detalhado da Performance por Evento:**') # Título para os cards
+    # --- CARDS DE PERFORMANCE POR EVENTO ---
+    st.markdown('**Resumo Detalhado da Performance por Evento:**')
     
     color_green = "#28a745" # Bootstrap success green
     color_red = "#dc3545"   # Bootstrap danger red
@@ -189,19 +180,19 @@ if selected_game and selected_player:
                 <div style="
                     border: 1px solid #e6e6e6;
                     border-radius: 8px;
-                    padding: 15px;
+                    padding: 10px; /* DIMINUÍDO AQUI */
                     margin-bottom: 10px;
                     background-color: #ffffff;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.05);
                 ">
-                    <h5 style="color: #333; margin-top: 0; margin-bottom: 5px; font-weight: 600;">{event_name}</h5>
-                    <p style="font-size: 1.8em; font-weight: bold; color: #000; margin-bottom: 5px;">
-                        {current_val} <small style="font-size: 0.5em; color: #777;">(Atual)</small>
+                    <h5 style="color: #333; margin-top: 0; margin-bottom: 5px; font-weight: 500;">{event_name}</h5> {/* FONT-WEIGHT AJUSTADO */}
+                    <p style="font-size: 1.5em; font-weight: bold; color: #000; margin-bottom: 5px;"> {/* FONT-SIZE AJUSTADO */}
+                        {current_val} <small style="font-size: 0.45em; color: #777;">(Atual)</small> {/* FONT-SIZE AJUSTADO */}
                     </p>
-                    <p style="font-size: 0.9em; color: #555; margin-bottom: 8px;">
+                    <p style="font-size: 0.8em; color: #555; margin-bottom: 8px;"> {/* FONT-SIZE AJUSTADO */}
                         Média: {avg_val}
                     </p>
-                    <p style="font-size: 1.1em; font-weight: bold; color: {display_color};">
+                    <p style="font-size: 1.0em; font-weight: bold; color: {display_color};"> {/* FONT-SIZE AJUSTADO */}
                         {display_arrow} {indicator_text}
                     </p>
                 </div>
@@ -211,8 +202,6 @@ if selected_game and selected_player:
         col_idx = (col_idx + 1) % num_cols
 
     st.write('---')
-    # O PDF agora não precisa mais dos argumentos de total de eventos,
-    # pois o card de resumo geral foi removido da UI.
     pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data)
     st.download_button(
         label="📄 Exportar Relatório como PDF",
