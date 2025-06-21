@@ -25,9 +25,14 @@ df = load_data(GITHUB_CSV_URL)
 df_grouped = df.groupby(['Jogo', 'Player', 'Evento'])['Count'].sum().reset_index()
 
 # 2. Calcular a média GLOBAL de cada Evento para cada Player (FIXA)
-# Esta média incluirá todos os jogos do jogador na base de dados
 player_overall_averages = df_grouped.groupby(['Player', 'Evento'])['Count'].mean().reset_index()
 player_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
+
+# 3. Calcular a média GLOBAL do TOTAL de Eventos por Jogo para cada Player (para o card de resumo)
+player_game_totals = df_grouped.groupby(['Player', 'Jogo'])['Count'].sum().reset_index()
+player_game_totals.rename(columns={'Count': 'TotalEventsInGame'}, inplace=True)
+player_overall_avg_total_events = player_game_totals.groupby('Player')['TotalEventsInGame'].mean().reset_index()
+player_overall_avg_total_events.rename(columns={'TotalEventsInGame': 'AverageTotalEvents'}, inplace=True)
 
 
 # Obter jogos e jogadores únicos para os filtros
@@ -42,23 +47,14 @@ NEGATIVE_EVENTS = [
 ]
 
 # Função para calcular e comparar a performance
-# Agora, recebe a média fixa global como argumento
 def get_performance_data(current_game, player_name, df_data, player_avg_data):
-    # Dados do jogo atual para o jogador selecionado
     current_game_events = df_data[(df_data['Jogo'] == current_game) & (df_data['Player'] == player_name)].copy()
-
-    # Filtrar as médias globais para o jogador selecionado
     player_specific_avg = player_avg_data[player_avg_data['Player'] == player_name]
 
-    # Unir os dados do jogo atual com a performance média GLOBAL do jogador
     comparison_df = pd.merge(current_game_events, player_specific_avg, on=['Evento', 'Player'], how='left')
     comparison_df.rename(columns={'Count': 'Atual'}, inplace=True)
-
-    # Preencher valores NaN da coluna 'Média' com 0
-    # (Caso um evento ocorreu no jogo atual, mas NUNCA nos outros jogos do jogador)
     comparison_df['Média'].fillna(0, inplace=True)
 
-    # Determinar a mudança de performance e o ícone
     comparison_df['Mudança'] = ''
     for index, row in comparison_df.iterrows():
         current_val = row['Atual']
@@ -66,7 +62,6 @@ def get_performance_data(current_game, player_name, df_data, player_avg_data):
         event_name = row['Evento']
 
         if event_name in NEGATIVE_EVENTS:
-            # Para eventos negativos, menos é melhor (redução = melhora)
             if current_val < avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Melhora (↓)'
             elif current_val > avg_val:
@@ -74,7 +69,6 @@ def get_performance_data(current_game, player_name, df_data, player_avg_data):
             else:
                 comparison_df.loc[index, 'Mudança'] = 'Mantém (—)'
         else:
-            # Para eventos positivos, mais é melhor (aumento = melhora)
             if current_val > avg_val:
                 comparison_df.loc[index, 'Mudança'] = 'Melhora (↑)'
             elif current_val < avg_val:
@@ -117,7 +111,7 @@ class PDF(FPDF):
         self.ln(5)
 
 
-def create_pdf_report(player_name, game_name, performance_df):
+def create_pdf_report(player_name, game_name, performance_df, current_game_total_events_df, average_total_events_for_player):
     pdf = PDF()
     pdf.add_page()
 
@@ -125,6 +119,23 @@ def create_pdf_report(player_name, game_name, performance_df):
     pdf.cell(0, 10, f'Jogador: {player_name}', 0, 1, 'L')
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
+
+    # Adicionar o resumo geral ao PDF
+    pdf.chapter_title('Resumo Geral da Performance:')
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 7, f'Eventos Totais (Atual): {int(current_game_total_events_df)}', 0, 1, 'L')
+    pdf.cell(0, 7, f'Média Total de Eventos: {average_total_events_for_player:.2f}', 0, 1, 'L')
+
+    summary_indicator_text_pdf = ""
+    if current_game_total_events_df > average_total_events_for_player:
+        summary_indicator_text_pdf = "Melhora (UP)"
+    elif current_game_total_events_df < average_total_events_for_player:
+        summary_indicator_text_pdf = "Piora (DOWN)"
+    else:
+        summary_indicator_text_pdf = "Mantém (-)"
+    pdf.cell(0, 7, f'Status Geral: {summary_indicator_text_pdf}', 0, 1, 'L')
+    pdf.ln(8)
+
 
     df_for_pdf = performance_df[['Evento', 'Atual', 'Média', 'Mudança']].copy()
     df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
@@ -136,10 +147,9 @@ def create_pdf_report(player_name, game_name, performance_df):
     pdf.chapter_title('Resumo da Performance por Evento:')
     pdf.add_table(df_for_pdf)
 
-    pdf_output = BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return pdf_output.getvalue()
+    pdf_bytes_content = pdf.output(dest='S').encode('latin1')
+
+    return pdf_bytes_content
 
 
 # --- Streamlit UI ---
@@ -148,26 +158,85 @@ selected_game = st.sidebar.selectbox('Selecione o Jogo Atual:', all_games)
 selected_player = st.sidebar.selectbox('Selecione o Jogador:', all_players)
 
 if selected_game and selected_player:
-    # Passar a média global para a função de performance
+    # 1. Calcular Dados de Performance por Evento
     performance_data = get_performance_data(selected_game, selected_player, df_grouped, player_overall_averages)
+
+    # 2. Calcular Dados para o Card de Resumo Geral (Total de Eventos)
+    current_game_total_events = df_grouped[
+        (df_grouped['Player'] == selected_player) &
+        (df_grouped['Jogo'] == selected_game)
+    ]['Count'].sum()
+
+    average_total_events = player_overall_avg_total_events[
+        player_overall_avg_total_events['Player'] == selected_player
+    ]['AverageTotalEvents'].iloc[0] if not player_overall_avg_total_events[player_overall_avg_total_events['Player'] == selected_player].empty else 0
+
+
+    # Lógica de indicador para o card de resumo
+    summary_display_arrow = ""
+    summary_display_color = "#6c757d" # Cor padrão (cinza)
+    summary_indicator_text = "Mantém"
+
+    if current_game_total_events > average_total_events:
+        summary_display_arrow = "▲"
+        summary_display_color = "#28a745" # Verde
+        summary_indicator_text = "Melhora"
+    elif current_game_total_events < average_total_events:
+        summary_display_arrow = "▼"
+        summary_display_color = "#dc3545" # Vermelho
+        summary_indicator_text = "Piora"
 
     st.subheader(f'Performance de {selected_player} no jogo: {selected_game}')
 
-    st.write('---')
+    # --- NOVO CARD DE RESUMO NO INÍCIO ---
+    st.markdown(
+        f"""
+        <div style="
+            border: 1px solid #e6e6e6; /* Borda suave */
+            border-radius: 8px; /* Cantos arredondados */
+            padding: 15px;
+            margin-bottom: 20px; /* Mais espaço para o próximo elemento */
+            background-color: #f8f9fa; /* Fundo levemente acinzentado */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Sombra mais visível */
+            text-align: center;
+        ">
+            <h4 style="color: #1a1a1a; margin-top: 0; margin-bottom: 10px; font-weight: 700;">Performance Geral do Atleta</h4>
+            <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 150px; padding: 5px;">
+                    <p style="font-size: 0.9em; color: #555; margin-bottom: 5px;">Eventos Totais (Atual)</p>
+                    <p style="font-size: 2.2em; font-weight: bold; color: #000; margin-top: 0; margin-bottom: 5px;">
+                        {int(current_game_total_events)}
+                    </p>
+                </div>
+                <div style="flex: 1; min-width: 150px; padding: 5px;">
+                    <p style="font-size: 0.9em; color: #555; margin-bottom: 5px;">Média Total de Eventos</p>
+                    <p style="font-size: 2.2em; font-weight: bold; color: #000; margin-top: 0; margin-bottom: 5px;">
+                        {average_total_events:.2f}
+                    </p>
+                </div>
+            </div>
+            <p style="font-size: 1.3em; font-weight: bold; color: {summary_display_color}; margin-top: 15px; margin-bottom: 0;">
+                {summary_display_arrow} {summary_indicator_text}
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.write('---') # Separador após o card de resumo
+
+    # --- RESTANTE DO DASHBOARD ---
     st.markdown('**Resumo Detalhado da Performance por Evento:**')
     st.dataframe(performance_data[['Evento', 'Atual', 'Média', 'Mudança']].set_index('Evento'), use_container_width=True)
 
     st.write('---')
     st.subheader('Visão Rápida por Evento:')
 
-    # Custom styling for boxes (using HTML and Markdown within st.markdown)
-    # Define colors based on change status
     color_green = "#28a745" # Bootstrap success green
     color_red = "#dc3545"   # Bootstrap danger red
     color_gray = "#6c757d"  # Bootstrap secondary gray
 
     num_events = len(performance_data)
-    num_cols = min(num_events, 3) # Max 3 columns
+    num_cols = min(num_events, 3)
     cols = st.columns(num_cols)
     col_idx = 0
 
@@ -179,33 +248,31 @@ if selected_game and selected_player:
             change_text = row['Mudança']
 
             display_arrow = ""
-            display_color = color_gray # Default to gray
+            display_color = color_gray
+            indicator_text = "Mantém"
 
-            # Determinar seta e cor baseadas na string de Mudança
             if 'Melhora (↑)' in change_text:
-                display_arrow = "▲" # Seta para cima (Melhora)
+                display_arrow = "▲"
                 display_color = color_green
                 indicator_text = "Melhora"
             elif 'Piora (↓)' in change_text:
-                display_arrow = "▼" # Seta para baixo (Piora)
+                display_arrow = "▼"
                 display_color = color_red
                 indicator_text = "Piora"
-            else: # Mantém (—)
-                display_arrow = "—" # Traço (Mantém)
+            else:
+                display_arrow = "—"
                 display_color = color_gray
                 indicator_text = "Mantém"
 
-
-            # Custom HTML/Markdown box for each statistic
             st.markdown(
                 f"""
                 <div style="
-                    border: 1px solid #e6e6e6; /* Cor da borda mais suave */
-                    border-radius: 8px; /* Cantos mais arredondados */
+                    border: 1px solid #e6e6e6;
+                    border-radius: 8px;
                     padding: 15px;
                     margin-bottom: 10px;
-                    background-color: #ffffff; /* Fundo branco */
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.05); /* Sombra suave */
+                    background-color: #ffffff;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
                 ">
                     <h5 style="color: #333; margin-top: 0; margin-bottom: 5px; font-weight: 600;">{event_name}</h5>
                     <p style="font-size: 1.8em; font-weight: bold; color: #000; margin-bottom: 5px;">
@@ -224,7 +291,7 @@ if selected_game and selected_player:
         col_idx = (col_idx + 1) % num_cols
 
     st.write('---')
-    pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data)
+    pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data, current_game_total_events, average_total_events)
     st.download_button(
         label="📄 Exportar Relatório como PDF",
         data=pdf_bytes,
