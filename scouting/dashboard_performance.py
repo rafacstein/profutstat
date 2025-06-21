@@ -5,14 +5,17 @@ import pandas as pd
 st.set_page_config(layout="wide")
 st.title('Comparativo de Performance de Jogador')
 
+# URL do arquivo CSV no GitHub (RAW)
+GITHUB_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
+
 # Função para carregar os dados
 @st.cache_data
-def load_data(file_path):
-    df = pd.read_csv(file_path)
+def load_data(url):
+    df = pd.read_csv(url)
     return df
 
-# Carregar os dados
-df = load_data('Monitoramento São Bento U13 - CONSOLIDADO INDIVIDUAL.csv')
+# Carregar os dados do GitHub
+df = load_data(GITHUB_CSV_URL)
 
 # Pré-processamento dos dados
 df_grouped = df.groupby(['Jogo', 'Player', 'Evento'])['Count'].sum().reset_index()
