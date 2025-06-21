@@ -88,7 +88,7 @@ class PDF(FPDF):
         self.ln(2)
 
     def add_table(self, df_to_print):
-        col_widths = [80, 30, 30, 30] # Larguras em mm
+        col_widths = [80, 30, 30, 30]
 
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(df_to_print.columns.tolist()):
@@ -137,17 +137,16 @@ if selected_game and selected_player:
 
     st.subheader(f'Performance de {selected_player} no jogo: {selected_game}')
 
-    st.write('---') # Separador após o título
+    st.write('---')
 
-    # --- CARDS DE PERFORMANCE POR EVENTO ---
     st.markdown('**Resumo Detalhado da Performance por Evento:**')
     
-    color_green = "#28a745" # Bootstrap success green
-    color_red = "#dc3545"   # Bootstrap danger red
-    color_gray = "#6c757d"  # Bootstrap secondary gray
+    color_green = "#28a745"
+    color_red = "#dc3545"
+    color_gray = "#6c757d"
 
     num_events = len(performance_data)
-    num_cols = min(num_events, 3) # Máximo de 3 colunas para os cards
+    num_cols = min(num_events, 3)
     cols = st.columns(num_cols)
     col_idx = 0
 
@@ -180,19 +179,19 @@ if selected_game and selected_player:
                 <div style="
                     border: 1px solid #e6e6e6;
                     border-radius: 8px;
-                    padding: 10px; /* DIMINUÍDO AQUI */
+                    padding: 10px;
                     margin-bottom: 10px;
                     background-color: #ffffff;
                     box-shadow: 0 4px 8px rgba(0,0,0,0.05);
                 ">
-                    <h5 style="color: #333; margin-top: 0; margin-bottom: 5px; font-weight: 500;">{event_name}</h5> {/* FONT-WEIGHT AJUSTADO */}
-                    <p style="font-size: 1.5em; font-weight: bold; color: #000; margin-bottom: 5px;"> {/* FONT-SIZE AJUSTADO */}
-                        {current_val} <small style="font-size: 0.45em; color: #777;">(Atual)</small> {/* FONT-SIZE AJUSTADO */}
+                    <h5 style="color: #333; margin-top: 0; margin-bottom: 5px; font-weight: 500;">{event_name}</h5>
+                    <p style="font-size: 1.5em; font-weight: bold; color: #000; margin-bottom: 5px;">
+                        {current_val} <small style="font-size: 0.45em; color: #777;">(Atual)</small>
                     </p>
-                    <p style="font-size: 0.8em; color: #555; margin-bottom: 8px;"> {/* FONT-SIZE AJUSTADO */}
+                    <p style="font-size: 0.8em; color: #555; margin-bottom: 8px;">
                         Média: {avg_val}
                     </p>
-                    <p style="font-size: 1.0em; font-weight: bold; color: {display_color};"> {/* FONT-SIZE AJUSTADO */}
+                    <p style="font-size: 1.0em; font-weight: bold; color: {display_color};">
                         {display_arrow} {indicator_text}
                     </p>
                 </div>
