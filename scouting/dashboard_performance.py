@@ -32,8 +32,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-st.title('📊 Dashboard de Análise de Performance')
-
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
@@ -57,6 +55,9 @@ def load_collective_data(url):
     if 'Timestamp' in df.columns: 
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
+    # Garante que 'Casa' e 'Fora' são numéricos
+    df['Casa'] = pd.to_numeric(df['Casa'], errors='coerce')
+    df['Fora'] = pd.to_numeric(df['Fora'], errors='coerce')
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
@@ -89,23 +90,23 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e INCLUINDO NOVOS)
-EVENTO_NATUREZA_CONFIG_COLETIVA = {
-    'Posse de bola': False, 
-    'Gols': False, 
-    'Chutes no gol': False, 
-    'Chutes pra fora': True, 
-    'Escanteios': False, 
-    'Faltas': True, 
-    'Cartões amarelos': True, 
-    'Cartões vermelhos': True, 
-    'Impedimentos': True, 
-    # NOVOS EVENTOS SOLICITADOS PARA O COLETIVO (Assumido que os nomes no CSV são estes)
-    'Desarmes': False,         # Assumido como positivo
-    'Interceptações': False,   # Assumido como positivo
-    'Passes Certos': False,    # Assumido como positivo
-    'Passes Errados': True,    # Assumido como negativo
-}
+# Para Estatísticas Coletivas (AGORA SEM INDICAÇÃO DE POSITIVO/NEGATIVO, APENAS PARA LISTAR)
+# A comparação de média foi removida para coletivo.
+EVENTO_LISTA_COLETIVA = [
+    'Posse de bola', 
+    'Gols', 
+    'Chutes no gol', 
+    'Chutes pra fora', 
+    'Escanteios', 
+    'Faltas', 
+    'Cartões amarelos', 
+    'Cartões vermelhos', 
+    'Impedimentos', 
+    'Desarmes',         
+    'Interceptações',   
+    'Passes Certos',    
+    'Passes Errados',    
+]
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
 INDIVIDUAL_EVENT_DISPLAY_ORDER = [
@@ -160,39 +161,19 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     
     all_relevant_combinations = pd.merge(
         all_relevant_combinations, 
-        actual_player_game_pairs, 
-        on=['Player', 'Jogo'], 
-        how='inner'
-    )
-
-    df_grouped_per_event_per_game = df_raw_individual.groupby(
-        ['Jogo', 'Player', 'Evento descrição']
-    )['Count'].sum().reset_index()
-
-    df_full_individual_counts = pd.merge(
-        all_relevant_combinations, 
-        df_grouped_per_event_per_game, 
+        df_raw_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index(), # Use a agrupada diretamente aqui
         on=['Jogo', 'Player', 'Evento descrição'], 
         how='left'
     )
+    df_full_individual_counts = all_relevant_combinations
     df_full_individual_counts['Count'].fillna(0, inplace=True)
 
     player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
     
+    # Retorna o df_grouped original e as médias corrigidas
+    df_grouped_per_event_per_game = df_raw_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     return df_grouped_per_event_per_game, player_overall_averages_corrected
-
-
-# --- Função de Pré-processamento para Médias Coletivas (EC São Bento - COLUNA CASA) ---
-@st.cache_data
-def preprocess_collective_data_for_averages(df_collective_raw):
-    df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
-    
-    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
-    collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean().reset_index()
-    collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
-    
-    return collective_overall_averages_corrected
 
 
 # --- Funções de Cálculo de Performance (Genérica para Individual) ---
@@ -257,52 +238,23 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
     return df_performance
 
 
-# --- Nova Função de Cálculo de Performance Coletiva (Compara com a Média da Coluna Casa) ---
-def get_collective_performance_data(game_name, df_collective_raw_data, collective_overall_averages):
+# --- Nova Função de Cálculo de Performance Coletiva (SEM MÉDIA E SEM INDICADORES DE SETA) ---
+def get_collective_performance_data(game_name, df_collective_raw_data):
     game_data = df_collective_raw_data[df_collective_raw_data['Jogo'] == game_name]
     
     comparison_list = []
     
-    epsilon = 0.01
-
-    for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
-        current_val_casa_series = game_data[game_data['Evento'] == event_name]['Casa']
-        current_val_casa = current_val_casa_series.iloc[0] if not current_val_casa_series.empty else 0
-
-        avg_val_casa_series = collective_overall_averages[collective_overall_averages['Evento'] == event_name]['Média']
-        avg_val_casa = avg_val_casa_series.iloc[0] if not avg_val_casa_series.empty else 0
-
-
-        indicator_text = "Mantém" 
-        display_color = "#6c757d" 
-        display_arrow = "" # Seta removida para análise coletiva
-
-        if abs(current_val_casa - avg_val_casa) < epsilon: 
-            indicator_text = "Mantém"
-            display_color = "#6c757d" 
-        elif is_negative_event: 
-            if current_val_casa < avg_val_casa:
-                indicator_text = "Melhor"
-                display_color = "#28a745" 
-            else: 
-                indicator_text = "Pior"
-                display_color = "#dc3545" 
-        else: 
-            if current_val_casa > avg_val_casa:
-                indicator_text = "Melhor"
-                display_color = "#28a745" 
-            elif current_val_casa < avg_val_casa:
-                indicator_text = "Pior"
-                display_color = "#dc3545" 
+    # Não há epsilon, comparação ou setas aqui, apenas valores
+    for event_name in EVENTO_LISTA_COLETIVA: # Itera pela nova lista de eventos coletivos
+        event_row = game_data[game_data['Evento'] == event_name]
         
+        casa_val = event_row['Casa'].iloc[0] if not event_row.empty else 0
+        fora_val = event_row['Fora'].iloc[0] if not event_row.empty else 0
+
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, # Agora é o valor da Casa
-            'Média': avg_val_casa, # Agora é a Média da Casa
-            'Mudança_UI': indicator_text, # Reutiliza para o texto com seta
-            'Comparação': indicator_text, # Mantém Comparação para o PDF
-            'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
-            'Color_UI': display_color # Cor para o card
+            'Casa': casa_val, 
+            'Fora': fora_val, 
         })
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
@@ -324,11 +276,11 @@ class PDF(FPDF):
     def add_table(self, df_to_print):
         headers = df_to_print.columns.tolist()
         
-        if 'Média' in headers: 
+        if 'Média' in headers: # Individual
             col_widths = [80, 30, 30, 30] 
-        else: 
-            col_widths = [60, 30, 30, 60] 
-
+        else: # Coletivo (agora só Evento, Casa, Fora)
+            col_widths = [80, 45, 45] # Ajustado para 3 colunas
+            
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(headers):
             self.cell(col_widths[i], 7, header, 1, 0, 'C')
@@ -336,12 +288,16 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                if headers[i] == 'Comparação':
-                    item_str = str(item) # Texto já é 'Melhor', 'Pior', 'Equilíbrio'
-                elif headers[i] == 'Mudança_PDF': # Individual
-                    item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
-                else:
-                    item_str = str(item)
+                # Para PDF, garantir que todos os itens são strings e formatar conforme necessário
+                item_str = str(item)
+                if headers[i] == 'Média': # Individual
+                    item_str = f"{float(item):.2f}"
+                elif headers[i] in ['Atual', 'Casa', 'Fora']: # Converter para int se aplicável
+                    try:
+                        item_str = str(int(float(item)))
+                    except ValueError:
+                        pass # Manter como está se não for número
+                
                 self.cell(col_widths[i], 6, item_str, 1, 0, 'C')
             self.ln()
         self.ln(5)
@@ -355,9 +311,8 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Comparação']].copy() # Colunas para coletivo
-        df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Comparação': 'Status'}, inplace=True)
-        df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
+        df_for_pdf = performance_data[['Event_Name', 'Casa', 'Fora']].copy() # Apenas essas colunas para PDF coletivo
+        df_for_pdf.rename(columns={'Event_Name': 'Evento'}, inplace=True)
     else: # Individual
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
@@ -376,6 +331,7 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
+    # Título principal (agora é um h1 com estilo, sem duplicação)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
@@ -519,7 +475,7 @@ with tab_coletiva:
     df_collective_raw = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) 
     collective_overall_averages_corrected = preprocess_collective_data_for_averages(df_collective_raw)
     
-    all_collective_games = sorted(df_collective_raw['Jogo'].unique().tolist()) 
+    all_collective_games = sorted(df_collective_raw['Jogo'].unique().tolist()) # Usa os jogos do DF raw
     
     selected_collective_game = st.selectbox('Jogo Atual (Coletivo):', all_collective_games)
 
@@ -534,6 +490,7 @@ with tab_coletiva:
 
         st.markdown('**Comparativo de Performance por Evento (EC São Bento vs. Média):**') # Título ajustado
         
+        # Cores já definidas acima
         color_green = "#28a745"
         color_red = "#dc3545"
         color_gray = "#6c757d"
@@ -541,6 +498,7 @@ with tab_coletiva:
         # Reutiliza a função get_display_event_name
         
         for index, row in performance_data_collective.iterrows():
+            # Layout com 3 colunas: Nome do Evento | Valor Atual (Casa) | Indicador
             col_name, col_value_card, col_indicator_collective = st.columns([0.4, 0.4, 0.2]) 
             
             with col_name:
