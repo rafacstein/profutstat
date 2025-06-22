@@ -33,25 +33,27 @@ st.markdown("""
 
 st.title('📊 Dashboard de Análise de Performance')
 
-# --- URLs dos Arquivos CSV (locais dos uploads, confirmados por inspeção) ---
-# Usamos os nomes de arquivo dos uploads para garantir o acesso no ambiente
+# --- URLs dos Arquivos CSV no GitHub (RAW) ---
+# CORRIGIDO: Usando as URLs RAW do GitHub para carregamento direto
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
 
-# --- Funções de Carregamento de Dados (Cacheado) ---
 
+# --- Funções de Carregamento de Dados (agora aceitam URL novamente) ---
 @st.cache_data
-def load_individual_data(file_path):
-    df = pd.read_csv(file_path)
+def load_individual_data(url):
+    df = pd.read_csv(url)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df['Evento descrição'] = df['Evento descrição'].str.strip() # Remove espaços
+    df['Evento descrição'] = df['Evento descrição'].str.strip()
     return df
 
 @st.cache_data
-def load_collective_data(file_path):
-    df = pd.read_csv(file_path)
+def load_collective_data(url):
+    df = pd.read_csv(url)
     # O arquivo coletivo não tem 'Timestamp'. A coluna de evento é 'Evento'.
-    df['Evento'] = df['Evento'].str.strip() # Ajustar para o nome correto da coluna e strip
+    if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    df['Evento'] = df['Evento'].str.strip() 
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
@@ -158,7 +160,6 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
     comparison_list = []
     
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
-        # CORRIGIDO: Coluna de evento no CSV coletivo é 'Evento'
         event_row = game_data[game_data['Evento'] == event_name]
         
         casa_val = event_row['Casa'].iloc[0] if not event_row.empty else 0
@@ -169,20 +170,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
+            if casa_val < fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
+            elif casa_val > fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: # Para eventos positivos 
-            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
+        else: 
+            if casa_val > fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
+            elif casa_val < fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -265,7 +266,8 @@ with tab_individual:
     st.header("Análise de Performance Individual")
 
     # Carrega dados individuais
-    df_individual = load_individual_data(INDIVIDUAL_CSV_PATH) # Usando o path do upload
+    # CORRIGIDO: Usando URL RAW do GitHub para carregar
+    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
     df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
@@ -392,10 +394,10 @@ with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
     # Carrega dados coletivos
-    df_collective = load_collective_data(COLLECTIVE_CSV_PATH) # Usando o path do upload
+    # CORRIGIDO: Usando URL RAW do GitHub para carregar
+    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL)
     
-    # NÃO HÁ GROUPBY POR TEAM OU MÉDIA AQUI - A ESTRUTURA É DIFERENTE
-    # Apenas pegamos os jogos únicos para o filtro
+    # Apenas pegamos os jogos únicos para o filtro, pois não há Team ou Timestamp
     all_collective_games = sorted(df_collective['Jogo'].unique().tolist())
     
     # Filtro coletivo (apenas por Jogo)
@@ -412,14 +414,12 @@ with tab_coletiva:
 
         st.markdown('**Comparativo Casa vs Fora por Evento:**')
         
-        # Cores já definidas acima
         color_green = "#28a745"
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
 
         for index, row in performance_data_collective.iterrows():
-            # A linha principal terá 4 colunas: Nome do Evento | Valor Casa | Valor Fora | Indicador
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
