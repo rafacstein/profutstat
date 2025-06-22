@@ -31,13 +31,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-st.title('📊 Dashboard de Análise de Performance')
-
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
 
-# --- URLs das Imagens dos Escudos (AGORA COM ENDEREÇOS RAW CORRIGIDOS!) ---
+# --- URLs das Imagens dos Escudos ---
 PROFUTSTAT_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/profutstat_logo.png"
 SAO_BENTO_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/ec_sao_bento.png"
 
@@ -53,7 +51,7 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
+    if 'Timestamp' in df.columns: 
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
     return df
@@ -265,7 +263,7 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    st.title('') 
+    # Removido o st.title() duplicado aqui
     st.markdown("<h1 style='text-align: center; color: #333;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
@@ -436,12 +434,11 @@ with tab_coletiva:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
-        # Reutiliza a função get_display_event_name
-        
         for index, row in performance_data_collective.iterrows():
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
+                # Usar a função para o nome de exibição
                 st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
 
             with col_casa_val:
