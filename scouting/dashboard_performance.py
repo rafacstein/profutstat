@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
-from itertools import product # Importado para ajudar na criação de combinações
 
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
@@ -54,7 +53,6 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    # O arquivo coletivo não tem 'Timestamp'. A coluna de evento é 'Evento'.
     if 'Timestamp' in df.columns: 
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
@@ -195,7 +193,7 @@ def preprocess_collective_data_for_averages(df_collective_raw):
 
 def get_performance_data_individual(player_name, game_name, df_grouped_data, overall_averages_data):
     comparison_list = []
-    # Epsilon ajustado para 0.01 novamente
+    # Epsilon ajustado para 0.01
     epsilon = 0.01 
 
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_INDIVIDUAL.items():
@@ -260,7 +258,7 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
     
     comparison_list = []
     
-    # Epsilon ajustado para 0.01 novamente
+    # Epsilon ajustado para 0.01
     epsilon = 0.01
 
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
@@ -328,10 +326,9 @@ class PDF(FPDF):
     def add_table(self, df_to_print):
         headers = df_to_print.columns.tolist()
         
-        # Adapta larguras de coluna para o PDF, com base nas colunas recebidas
-        if 'Média' in headers: # É um relatório individual ou coletivo com média
+        if 'Média' in headers: 
             col_widths = [80, 30, 30, 30] 
-        else: # Caso haja outra estrutura (ex: Casa, Fora, Comparação - removido agora)
+        else: 
             col_widths = [60, 30, 30, 60] 
 
         self.set_font('Arial', 'B', 9)
@@ -341,12 +338,8 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                # Conversão para string e tratamento para PDF (sem caracteres Unicode)
-                if headers[i] == 'Comparação': # 'Comparação' para coletivo, 'Mudança' para individual
-                    # Para PDF, usar textos mais simples, sem setas Unicode
+                if headers[i] == 'Comparação':
                     item_str = str(item).replace('Casa Melhor', 'Casa').replace('Fora Melhor', 'Fora').replace('Equilíbrio', '=')
-                elif headers[i] == 'Mudança':
-                    item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
                 else:
                     item_str = str(item)
                 self.cell(col_widths[i], 6, item_str, 1, 0, 'C')
@@ -361,7 +354,6 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
 
-    # CORRIGIDO: PDF coletivo agora mostra Atual, Média, Mudança
     if is_collective:
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Mudança_PDF': 'Mudança'}, inplace=True)
@@ -615,12 +607,12 @@ with tab_coletiva:
         st.write('---') 
 
         pdf_bytes_collective = create_pdf_report_generic(
-            "Time", "EC São Bento", selected_collective_game, performance_data_collective, is_collective=True # entity_type e entity_name fixos
+            "Time", "EC São Bento", selected_collective_game, performance_data_collective, is_collective=True 
         )
         st.download_button(
             label="📄 Exportar Relatório Coletivo como PDF",
             data=pdf_bytes_collective,
-            file_name=f"Relatorio_Performance_Coletiva_EC_Sao_Bento_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf", # Nome do arquivo fixo
+            file_name=f"Relatorio_Performance_Coletiva_EC_Sao_Bento_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
 
