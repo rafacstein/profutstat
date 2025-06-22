@@ -33,29 +33,30 @@ st.markdown("""
 
 st.title('📊 Dashboard de Análise de Performance')
 
-# --- URLs dos Arquivos CSV no GitHub (RAW) ---
-GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
-GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
+# --- Caminhos dos Arquivos CSV (locais dos uploads) ---
+# Usamos os nomes de arquivo dos uploads para garantir o acesso
+INDIVIDUAL_CSV_PATH = 'Monitoramento São Bento U13 - CONSOLIDADO INDIVIDUAL.csv'
+COLLECTIVE_CSV_PATH = 'Monitoramento São Bento U13 - CONSOLIDADO COLETIVO.csv'
 
 
 # --- Funções de Carregamento de Dados (Cacheado) ---
 
 @st.cache_data
-def load_individual_data(url):
-    df = pd.read_csv(url)
+def load_individual_data(file_path):
+    df = pd.read_csv(file_path)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento descrição'] = df['Evento descrição'].str.strip()
     return df
 
 @st.cache_data
-def load_collective_data(url):
-    df = pd.read_csv(url)
-    # O arquivo coletivo não tem 'Timestamp'. 'Evento' é o nome da coluna.
+def load_collective_data(file_path):
+    df = pd.read_csv(file_path)
+    # O arquivo coletivo não tem 'Timestamp'. A coluna é 'Evento'.
     df['Evento'] = df['Evento'].str.strip() # Ajustar para o nome correto da coluna e strip
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
-# Para Estatísticas Individuais
+# Para Estatísticas Individuais (baseado no CSV individual)
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
@@ -86,15 +87,17 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado nos nomes de eventos do arquivo coletivo)
+# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
-    'Passe': False, 
-    'Perda de Posse': True, 
-    'Recuperação de Posse': False, 
-    'Finalização': False, 
-    'Falta': True, 
-    'Defesa Goleiro': False, 
-    'Cruzamento': False, 
+    'Posse de bola': False, # Mais posse é geralmente positivo
+    'Gols': False, # Mais gols é positivo
+    'Chutes no gol': False, # Mais chutes no gol é positivo
+    'Chutes pra fora': True, # Mais chutes pra fora é negativo
+    'Escanteios': False, # Mais escanteios é geralmente positivo
+    'Faltas': True, # Mais faltas (cometidas) é negativo
+    'Cartões amarelos': True, # Mais cartões é negativo
+    'Cartões vermelhos': True, # Mais cartões é negativo
+    'Impedimentos': True, # Mais impedimentos é negativo
 }
 
 
@@ -161,37 +164,37 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         casa_val = event_row['Casa'].iloc[0] if not event_row.empty else 0
         fora_val = event_row['Fora'].iloc[0] if not event_row.empty else 0
 
-        indicator_text = "Equilíbrio (=)"
+        indicator_text = "Equilíbrio" # Texto curto para o card
         display_color = "#6c757d" # Cinza
-        display_arrow = "="
+        display_arrow = "=" # Seta para igualdade
 
         # Lógica de comparação Casa vs Fora
-        if is_negative_event: # Para eventos negativos (Piora se Casa > Fora)
-            if casa_val < fora_val:
-                indicator_text = "Casa Melhor (↓)"
+        if is_negative_event: # Para eventos negativos (Mais é Pior)
+            if casa_val < fora_val: # Casa tem menos que Fora = Casa Melhor
+                indicator_text = "Casa Melhor"
                 display_color = "#28a745" # Verde
-                display_arrow = "↓"
-            elif casa_val > fora_val:
-                indicator_text = "Fora Melhor (↑)"
+                display_arrow = "↓" # Seta para baixo (menos é melhor)
+            elif casa_val > fora_val: # Casa tem mais que Fora = Fora Melhor
+                indicator_text = "Fora Melhor"
                 display_color = "#dc3545" # Vermelho
-                display_arrow = "↑"
-        else: # Para eventos positivos (Melhora se Casa > Fora)
-            if casa_val > fora_val:
-                indicator_text = "Casa Melhor (↑)"
+                display_arrow = "↑" # Seta para cima (mais é pior)
+        else: # Para eventos positivos (Mais é Melhor)
+            if casa_val > fora_val: # Casa tem mais que Fora = Casa Melhor
+                indicator_text = "Casa Melhor"
                 display_color = "#28a745" # Verde
-                display_arrow = "↑"
-            elif casa_val < fora_val:
-                indicator_text = "Fora Melhor (↓)"
+                display_arrow = "↑" # Seta para cima (mais é melhor)
+            elif casa_val < fora_val: # Casa tem menos que Fora = Fora Melhor
+                indicator_text = "Fora Melhor"
                 display_color = "#dc3545" # Vermelho
-                display_arrow = "↓"
+                display_arrow = "↓" # Seta para baixo (menos é pior)
 
         comparison_list.append({
             'Event_Name': event_name, 
             'Casa': casa_val,
             'Fora': fora_val,
-            'Comparação': indicator_text,
-            'Arrow_UI': display_arrow,
-            'Color_UI': display_color
+            'Comparação': indicator_text, # Texto do status (ex: "Casa Melhor")
+            'Arrow_UI': display_arrow, # Seta (ex: "↑")
+            'Color_UI': display_color # Cor (ex: "#28a745")
         })
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
@@ -211,15 +214,13 @@ class PDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
         self.ln(2)
     def add_table(self, df_to_print):
-        # Adapta larguras de coluna para o PDF, com base nas colunas recebidas
-        # Assegura que o PDF pode lidar com colunas de Individual ou Coletivo
         headers = df_to_print.columns.tolist()
         
-        # Define larguras padrão ou ajusta se necessário.
+        # Adapta larguras de coluna para o PDF
         if 'Média' in headers: # É um relatório individual
-            col_widths = [80, 30, 30, 30] 
-        else: # É um relatório coletivo (Casa, Fora, Comparação)
-            col_widths = [60, 30, 30, 60]
+            col_widths = [80, 30, 30, 30] # Evento, Atual, Média, Mudança
+        else: # É um relatório coletivo (Evento, Casa, Fora, Comparação)
+            col_widths = [60, 30, 30, 60] 
 
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(headers):
@@ -228,7 +229,13 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                self.cell(col_widths[i], 6, str(item), 1, 0, 'C')
+                # Conversão para string e tratamento para PDF (sem caracteres Unicode)
+                if headers[i] == 'Comparação':
+                    # Para PDF, usar textos mais simples, sem setas Unicode
+                    item_str = str(item).replace('Casa Melhor', 'Casa').replace('Fora Melhor', 'Fora').replace('Equilíbrio', '=')
+                else:
+                    item_str = str(item)
+                self.cell(col_widths[i], 6, item_str, 1, 0, 'C')
             self.ln()
         self.ln(5)
 
@@ -262,7 +269,7 @@ with tab_individual:
     st.header("Análise de Performance Individual")
 
     # Carrega dados individuais
-    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
+    df_individual = load_individual_data(INDIVIDUAL_CSV_PATH)
     df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
@@ -388,7 +395,7 @@ with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
     # Carrega dados coletivos
-    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL)
+    df_collective = load_collective_data(COLLECTIVE_CSV_PATH)
     
     # NÃO HÁ GROUPBY POR TEAM OU MÉDIA AQUI - A ESTRUTURA É DIFERENTE
     # Apenas pegamos os jogos únicos para o filtro
