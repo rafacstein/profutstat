@@ -44,99 +44,87 @@ def load_data(url):
 
 df = load_data(GITHUB_CSV_URL)
 
-# --- Pré-processamento de Dados ---
+# --- Pré-processamento de Dados (agregado apenas por Jogo, Player, Evento) ---
 df_grouped = df.groupby(['Jogo', 'Player', 'Evento'])['Count'].sum().reset_index()
 
 all_games = sorted(df_grouped['Jogo'].unique().tolist())
 all_players = sorted(df_grouped['Player'].unique().tolist())
 
-# --- Definição das Categorias de Métricas e sua Natureza (Positiva/Negativa) ---
-# Expandido para cobrir todas as estatísticas únicas e aprimoramento de nomes
-METRIC_CATEGORIES_CONFIG = {
-    "Passes Certos (Total)": {'events': ['Passe Certo Curto', 'Passe Certo Longo'], 'is_negative': False},
-    "Passes Errados (Total)": {'events': ['Passe Errado Curto', 'Passe Errado Longo', 'Passe Errado'], 'is_negative': True},
-    "Chutes Certos": {'events': ['Chute Certo'], 'is_negative': False},
-    "Chutes Errados": {'events': ['Chute Errado'], 'is_negative': True},
-    "Dribles Certos": {'events': ['Drible Certo'], 'is_negative': False},
-    "Dribles Errados": {'events': ['Drible Errado'], 'is_negative': True},
-    "Dribles (Total Geral)": {'events': ['Drible'], 'is_negative': False}, # Adicionado para cobrir 'Drible' genérico
-    "Roubadas de Bola": {'events': ['Roubada de Bola'], 'is_negative': False},
-    "Perdas de Bola": {'events': ['Perda da Bola'], 'is_negative': True},
-    "Faltas Cometidas": {'events': ['Falta Cometida'], 'is_negative': True},
-    "Faltas Sofridas": {'events': ['Falta Sofrida'], 'is_negative': False},
-    "Recepções Erradas": {'events': ['Recepcao Errada'], 'is_negative': True},
-    # Se houver outras estatísticas em df['Evento'].unique() que não se encaixam aqui,
-    # elas precisariam ser adicionadas manualmente com sua natureza (is_negative: True/False).
-    # Este dicionário agora tenta cobrir todas as do exemplo inicial.
+# --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
+# AGORA INCLUI 'GOL'
+EVENTO_NATUREZA_CONFIG = {
+    'Passe Certo Curto': False,
+    'Passe Certo Longo': False,
+    'Passe Errado Curto': True,
+    'Passe Errado Longo': True,
+    'Chute Certo': False,
+    'Chute Errado': True,
+    'Passe Errado': True,
+    'Falta Sofrida': False,
+    'Drible Certo': False,
+    'Drible Errado': True,
+    'Drible': False,
+    'Roubada de Bola': False,
+    'Perda da Bola': True,
+    'Falta Cometida': True,
+    'Recepcao Errada': True,
+    'Gol': False, # <--- GOL ADICIONADO AQUI
 }
 
-
-# --- Pré-cálculo das Médias Globais por Categoria e Jogador ---
-df_categorized_counts_per_game = pd.DataFrame()
-for player in all_players:
-    player_data = df_grouped[df_grouped['Player'] == player]
-    unique_games_for_player = player_data['Jogo'].unique()
-    for game in unique_games_for_player:
-        game_player_data = player_data[player_data['Jogo'] == game]
-        
-        category_counts = {'Player': player, 'Jogo': game}
-        for category_name, config in METRIC_CATEGORIES_CONFIG.items():
-            category_sum = game_player_data[game_player_data['Evento'].isin(config['events'])]['Count'].sum()
-            category_counts[category_name] = category_sum
-        
-        df_categorized_counts_per_game = pd.concat([df_categorized_counts_per_game, pd.DataFrame([category_counts])], ignore_index=True)
-
-player_category_overall_averages = df_categorized_counts_per_game.groupby('Player').mean(numeric_only=True).reset_index()
+# --- Pré-cálculo das Médias Globais por Evento e Jogador ---
+player_overall_averages = df_grouped.groupby(['Player', 'Evento'])['Count'].mean().reset_index()
+player_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
 
 
-# --- Função para Obter Dados de Performance por Categoria ---
-def get_performance_data_by_category(current_game, player_name, df_categorized_data, player_avg_category_data):
-    current_game_category_data = df_categorized_data[
-        (df_categorized_data['Player'] == player_name) &
-        (df_categorized_data['Jogo'] == current_game)
-    ]
-    
-    player_category_avg = player_avg_category_data[player_avg_category_data['Player'] == player_name]
-
+# --- Função para Obter Dados de Performance por Evento ---
+def get_performance_data_by_event(current_game, player_name, df_grouped_data, player_avg_event_data):
     comparison_list = []
     
-    # Ajuste do epsilon para uma tolerância mais "visível" ou "prática"
-    epsilon = 0.01 # Se a diferença for menor que 0.01, considere igual
+    epsilon = 0.01 # Tolerância para comparação de ponto flutuante
 
-    for category_name, config in METRIC_CATEGORIES_CONFIG.items():
-        current_val = current_game_category_data[category_name].iloc[0] if category_name in current_game_category_data.columns and not current_game_category_data.empty else 0
-        avg_val = player_category_avg[category_name].iloc[0] if category_name in player_category_avg.columns and not player_category_avg.empty else 0
+    for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG.items():
+        current_val_series = df_grouped_data[
+            (df_grouped_data['Jogo'] == current_game) &
+            (df_grouped_data['Player'] == player_name) &
+            (df_grouped_data['Evento'] == event_name)
+        ]['Count']
+        current_val = current_val_series.iloc[0] if not current_val_series.empty else 0
+
+        avg_val_series = player_avg_event_data[
+            (player_avg_event_data['Player'] == player_name) &
+            (player_avg_event_data['Evento'] == event_name)
+        ]['Média']
+        avg_val = avg_val_series.iloc[0] if not avg_val_series.empty else 0
 
         indicator_text_raw = "Mantém (—)" 
         indicator_text_pdf = "Mantém (-)" 
 
-        # Lógica de comparação com a nova tolerância para igualdade
         if abs(current_val - avg_val) < epsilon: 
             indicator_text_raw = "Mantém (—)"
             indicator_text_pdf = "Mantém (-)"
-        elif config['is_negative']: # Se a categoria é de eventos "ruins"
+        elif is_negative_event:
             if current_val < avg_val:
                 indicator_text_raw = "Melhora (↓)" 
                 indicator_text_pdf = "Melhora (DOWN)"
-            else: # current_val > avg_val
+            else: 
                 indicator_text_raw = "Piora (↑)" 
                 indicator_text_pdf = "Piora (UP)"
-        else: # Se a categoria é de eventos "bons"
+        else:
             if current_val > avg_val:
                 indicator_text_raw = "Melhora (↑)"
                 indicator_text_pdf = "Melhora (UP)"
-            else: # current_val < avg_val
+            else: 
                 indicator_text_raw = "Piora (↓)"
                 indicator_text_pdf = "Piora (DOWN)"
 
         comparison_list.append({
-            'Category': category_name,
+            'Event_Name': event_name, 
             'Atual': current_val,
             'Média': avg_val,
             'Mudança_UI': indicator_text_raw,
             'Mudança_PDF': indicator_text_pdf
         })
-    return pd.DataFrame(comparison_list)
+    return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
 
 # --- Geração de PDF ---
@@ -166,7 +154,7 @@ class PDF(FPDF):
             self.ln()
         self.ln(5)
 
-def create_pdf_report(player_name, game_name, performance_data_category):
+def create_pdf_report(player_name, game_name, performance_data_event):
     pdf = PDF()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 11)
@@ -174,11 +162,11 @@ def create_pdf_report(player_name, game_name, performance_data_category):
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
 
-    df_for_pdf = performance_data_category[['Category', 'Atual', 'Média', 'Mudança_PDF']].copy()
-    df_for_pdf.rename(columns={'Category': 'Categoria', 'Mudança_PDF': 'Mudança'}, inplace=True)
+    df_for_pdf = performance_data_event[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
+    df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
     df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
     
-    pdf.chapter_title('Resumo da Performance por Categoria:')
+    pdf.chapter_title('Resumo da Performance por Evento:')
     pdf.add_table(df_for_pdf)
     pdf_bytes_content = pdf.output(dest='S').encode('latin1')
     return pdf_bytes_content
@@ -195,7 +183,7 @@ with col2:
 
 
 if selected_game and selected_player:
-    performance_data_category = get_performance_data_by_category(selected_game, selected_player, df_categorized_counts_per_game, player_category_overall_averages)
+    performance_data_event = get_performance_data_by_event(selected_game, selected_player, df_grouped, player_overall_averages)
 
     st.subheader(f'Performance de {selected_player} no jogo: {selected_game}')
     st.write('---')
@@ -206,11 +194,11 @@ if selected_game and selected_player:
     color_red = "#dc3545"
     color_gray = "#6c757d"
 
-    for index, row in performance_data_category.iterrows():
+    for index, row in performance_data_event.iterrows():
         col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
         with col_name:
-            st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Category']}</h5>", unsafe_allow_html=True)
+            st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Event_Name']}</h5>", unsafe_allow_html=True)
 
         current_val = int(row['Atual'])
         avg_val = f"{row['Média']:.2f}"
@@ -284,7 +272,7 @@ if selected_game and selected_player:
 
     st.write('---') 
 
-    pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data_category)
+    pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data_event)
     st.download_button(
         label="📄 Exportar Relatório como PDF",
         data=pdf_bytes,
