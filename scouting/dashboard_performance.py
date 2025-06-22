@@ -16,17 +16,15 @@ st.markdown("""
     }
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Roboto', sans-serif;
-        font-weight: 500; /* Um peso médio para títulos para manter modernidade */
+        font-weight: 500;
     }
     
-    /* Ajustes específicos para os cards, garantindo que usem a nova fonte */
     div[data-testid="stMarkdownContainer"] h5,
     div[data-testid="stMarkdownContainer"] p {
         font-family: 'Roboto', sans-serif;
     }
 
-    /* Reduzir o espaço entre as colunas para um layout mais compacto */
-    .st-emotion-cache-1g8fg5q { /* Classe CSS para as colunas Streamlit */
+    .st-emotion-cache-1g8fg5q { 
         gap: 0.5rem; 
     }
     </style>
@@ -96,25 +94,33 @@ def get_performance_data_by_category(current_game, player_name, df_categorized_d
     player_category_avg = player_avg_category_data[player_avg_category_data['Player'] == player_name]
 
     comparison_list = []
+    
+    # Define uma pequena tolerância para comparações de ponto flutuante
+    epsilon = 1e-9 
+
     for category_name, config in METRIC_CATEGORIES_CONFIG.items():
         current_val = current_game_category_data[category_name].iloc[0] if category_name in current_game_category_data.columns and not current_game_category_data.empty else 0
         avg_val = player_category_avg[category_name].iloc[0] if category_name in player_category_avg.columns and not player_category_avg.empty else 0
 
-        indicator_text_raw = "Mantém" 
+        indicator_text_raw = "Mantém (—)" 
         indicator_text_pdf = "Mantém (-)" 
 
-        if config['is_negative']:
+        # Lógica de comparação com tolerância para igualdade
+        if abs(current_val - avg_val) < epsilon: # Se são aproximadamente iguais
+            indicator_text_raw = "Mantém (—)"
+            indicator_text_pdf = "Mantém (-)"
+        elif config['is_negative']: # Se a categoria é de eventos "ruins"
             if current_val < avg_val:
-                indicator_text_raw = "Melhora (↓)" 
+                indicator_text_raw = "Melhora (↓)" # Menos eventos ruins é melhor
                 indicator_text_pdf = "Melhora (DOWN)"
-            elif current_val > avg_val:
-                indicator_text_raw = "Piora (↑)" 
+            else: # current_val > avg_val (pois igualdade já foi tratada)
+                indicator_text_raw = "Piora (↑)" # Mais eventos ruins é pior
                 indicator_text_pdf = "Piora (UP)"
-        else:
+        else: # Se a categoria é de eventos "bons"
             if current_val > avg_val:
                 indicator_text_raw = "Melhora (↑)"
                 indicator_text_pdf = "Melhora (UP)"
-            elif current_val < avg_val:
+            else: # current_val < avg_val (pois igualdade já foi tratada)
                 indicator_text_raw = "Piora (↓)"
                 indicator_text_pdf = "Piora (DOWN)"
 
@@ -128,7 +134,7 @@ def get_performance_data_by_category(current_game, player_name, df_categorized_d
     return pd.DataFrame(comparison_list)
 
 
-# --- Geração de PDF (Inalterada na sua lógica, apenas recebe os dados já preparados) ---
+# --- Geração de PDF ---
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -195,13 +201,8 @@ if selected_game and selected_player:
     color_red = "#dc3545"
     color_gray = "#6c757d"
 
-    # Layout em três colunas para cada linha de métrica:
-    # Coluna 1: Nome da Categoria
-    # Coluna 2: Card de Valor (Atual vs Média)
-    # Coluna 3: Card do Indicador (Seta e Texto)
-    
     for index, row in performance_data_category.iterrows():
-        col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2]) # Proporções ajustadas
+        col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
         with col_name:
             st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Category']}</h5>", unsafe_allow_html=True)
@@ -233,12 +234,12 @@ if selected_game and selected_player:
                 <div style="
                     border: 1px solid #e6e6e6;
                     border-radius: 8px;
-                    padding: 8px; /* Reduzido o padding */
+                    padding: 8px;
                     background-color: #ffffff;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                    height: 75px; /* Altura fixa para alinhamento */
+                    height: 75px;
                     display: flex; flex-direction: column; justify-content: center;
-                    margin-bottom: 10px; /* Espaçamento entre as linhas de cards */
+                    margin-bottom: 10px;
                 ">
                     <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">
                         {current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small>
@@ -257,13 +258,13 @@ if selected_game and selected_player:
                 <div style="
                     border: 1px solid {display_color};
                     border-radius: 8px;
-                    padding: 5px; /* Mais reduzido para o indicador */
+                    padding: 5px;
                     background-color: {display_color}20;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                    height: 75px; /* Altura fixa para alinhamento */
+                    height: 75px;
                     display: flex; flex-direction: column; justify-content: center; align-items: center;
                     text-align: center;
-                    margin-bottom: 10px; /* Espaçamento entre as linhas de cards */
+                    margin-bottom: 10px;
                 ">
                     <p style="font-size: 1.5em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">
                         {display_arrow}
