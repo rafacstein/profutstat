@@ -66,11 +66,11 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    #'Passe Errado': True, 
+    'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
-    #'Drible': False, 
+    'Drible': False, 
     'Roubada de Bola': False,
     'Perda de Posse': True, 
     'Falta Cometida': True,
@@ -111,7 +111,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Passes
     'Passe Certo Curto',
     'Passe Certo Longo',
-    #'Passe Errado',
+    'Passe Errado',
     'Passe Errado Curto',
     'Passe Errado Longo',
     'Passe Chave',
@@ -119,7 +119,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Dribles
     'Drible Certo',
     'Drible Errado',
-    #'Drible',
+    'Drible',
     # Ações de Defesa (exceto Duelos Aéreos)
     'Defesa Goleiro',
     'Defesa Recuperação',
@@ -139,27 +139,20 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
 # --- Função de Pré-processamento CORRIGIDA para Médias Individuais ---
 @st.cache_data
 def preprocess_individual_data_for_averages(df_raw_individual):
-    # Garante que os nomes dos eventos estejam limpos
     df_raw_individual['Evento descrição'] = df_raw_individual['Evento descrição'].str.strip()
 
-    # Step 1: Obter todos os jogadores, jogos e eventos únicos do dataset
     all_players = df_raw_individual['Player'].unique().tolist()
     all_games_individual = df_raw_individual['Jogo'].unique().tolist()
     all_event_descriptions = df_raw_individual['Evento descrição'].unique().tolist()
-
-    # Step 2: Criar um DataFrame com todas as combinações POSSÍVEIS (Jogador, Jogo, Evento)
-    # APENAS para os jogadores e jogos que realmente existem.
-    # Primeiro, obtenha os pares reais (Jogador, Jogo) da sua base de dados
+    
     actual_player_game_pairs = df_raw_individual[['Player', 'Jogo']].drop_duplicates()
-
-    # Combine os pares reais (Jogador, Jogo) com todos os Eventos únicos
+    
     all_relevant_combinations = pd.DataFrame(list(product(
-        actual_player_game_pairs['Player'].unique(), # Garante que só jogadores que existem
-        actual_player_game_pairs['Jogo'].unique(),   # E jogos que existem
+        actual_player_game_pairs['Player'].unique(), 
+        actual_player_game_pairs['Jogo'].unique(),   
         all_event_descriptions
     )), columns=['Player', 'Jogo', 'Evento descrição'])
     
-    # Filtra essas combinações para manter APENAS os pares (Jogador, Jogo) que realmente ocorreram
     all_relevant_combinations = pd.merge(
         all_relevant_combinations, 
         actual_player_game_pairs, 
@@ -167,27 +160,21 @@ def preprocess_individual_data_for_averages(df_raw_individual):
         how='inner'
     )
 
-    # Agrupar os dados brutos para ter a contagem por (Jogo, Jogador, Evento)
     df_grouped_per_event_per_game = df_raw_individual.groupby(
         ['Jogo', 'Player', 'Evento descrição']
     )['Count'].sum().reset_index()
 
-    # Mesclar as contagens reais com todas as combinações possíveis. Contagens não existentes virarão NaN.
     df_full_individual_counts = pd.merge(
         all_relevant_combinations, 
         df_grouped_per_event_per_game, 
         on=['Jogo', 'Player', 'Evento descrição'], 
         how='left'
     )
-    # Preencher NaN com 0, o que garante que eventos não realizados em uma partida contem como 0.
     df_full_individual_counts['Count'].fillna(0, inplace=True)
 
-    # Step 3: Calcular a média global CORRIGIDA
-    # Agora a média é feita sobre o 'Count' (incluindo 0s) para cada (Jogador, Evento)
     player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
     
-    # Retorna o df_grouped original (para consulta do jogo atual) e as médias corrigidas
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
 
@@ -195,7 +182,8 @@ def preprocess_individual_data_for_averages(df_raw_individual):
 
 def get_performance_data_individual(player_name, game_name, df_grouped_data, overall_averages_data):
     comparison_list = []
-    epsilon = 0.01 
+    # A sensibilidade da seta aumentada para 1e-6
+    epsilon = 1e-6 # Reduzido para maior sensibilidade
 
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_INDIVIDUAL.items():
         current_val_series = df_grouped_data[
@@ -214,6 +202,7 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
         indicator_text_raw = "Mantém (—)" 
         indicator_text_pdf = "Mantém (-)" 
 
+        # Lógica de comparação com a nova tolerância mais rigorosa para igualdade
         if abs(current_val - avg_val) < epsilon: 
             indicator_text_raw = "Mantém (—)"
             indicator_text_pdf = "Mantém (-)"
@@ -242,14 +231,10 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
     
     df_performance = pd.DataFrame(comparison_list)
     
-    # ORDENAR O DATAFRAME DE ACORDO COM A ORDEM PERSONALIZADA
-    # Cria uma cópia da lista de categorias para usar no Categorical, garantindo que todos os eventos estejam lá.
-    # Mesmo se um evento não tiver ocorrido no jogo ou na média, ele mantém a ordem.
-    # Garante que as categorias de ORDER existam nos dados antes de usar no Categorical
-    existing_events_in_order = [e for e in INDIVIDUAL_EVENT_DISPLAY_ORDER if e in df_performance['Event_Name'].unique()]
+    all_possible_events_in_order = [e for e in INDIVIDUAL_EVENT_DISPLAY_ORDER if e in df_performance['Event_Name'].unique()]
     df_performance['Event_Name'] = pd.Categorical(
         df_performance['Event_Name'], 
-        categories=existing_events_in_order, 
+        categories=all_possible_events_in_order, 
         ordered=True
     )
     df_performance = df_performance.sort_values('Event_Name').reset_index(drop=True)
