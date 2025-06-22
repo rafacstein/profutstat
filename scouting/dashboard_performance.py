@@ -63,7 +63,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
     # 'Chute Certo': False,  <-- Removido
-    'Passe Errado': True, 
+    #'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
