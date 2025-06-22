@@ -51,18 +51,23 @@ all_games = sorted(df_grouped['Jogo'].unique().tolist())
 all_players = sorted(df_grouped['Player'].unique().tolist())
 
 # --- Definição das Categorias de Métricas e sua Natureza (Positiva/Negativa) ---
+# Expandido para cobrir todas as estatísticas únicas e aprimoramento de nomes
 METRIC_CATEGORIES_CONFIG = {
-    "Passes Certos": {'events': ['Passe Certo Curto', 'Passe Certo Longo'], 'is_negative': False},
-    "Passes Errados": {'events': ['Passe Errado Curto', 'Passe Errado Longo', 'Passe Errado'], 'is_negative': True},
+    "Passes Certos (Total)": {'events': ['Passe Certo Curto', 'Passe Certo Longo'], 'is_negative': False},
+    "Passes Errados (Total)": {'events': ['Passe Errado Curto', 'Passe Errado Longo', 'Passe Errado'], 'is_negative': True},
     "Chutes Certos": {'events': ['Chute Certo'], 'is_negative': False},
     "Chutes Errados": {'events': ['Chute Errado'], 'is_negative': True},
     "Dribles Certos": {'events': ['Drible Certo'], 'is_negative': False},
     "Dribles Errados": {'events': ['Drible Errado'], 'is_negative': True},
+    "Dribles (Total Geral)": {'events': ['Drible'], 'is_negative': False}, # Adicionado para cobrir 'Drible' genérico
     "Roubadas de Bola": {'events': ['Roubada de Bola'], 'is_negative': False},
     "Perdas de Bola": {'events': ['Perda da Bola'], 'is_negative': True},
     "Faltas Cometidas": {'events': ['Falta Cometida'], 'is_negative': True},
     "Faltas Sofridas": {'events': ['Falta Sofrida'], 'is_negative': False},
     "Recepções Erradas": {'events': ['Recepcao Errada'], 'is_negative': True},
+    # Se houver outras estatísticas em df['Evento'].unique() que não se encaixam aqui,
+    # elas precisariam ser adicionadas manualmente com sua natureza (is_negative: True/False).
+    # Este dicionário agora tenta cobrir todas as do exemplo inicial.
 }
 
 
