@@ -31,6 +31,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+st.title('📊 Dashboard de Análise de Performance')
+
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
@@ -63,7 +65,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    'Passe Errado': True, 
+    #'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
@@ -98,6 +100,39 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Cartões vermelhos': True, 
     'Impedimentos': True, 
 }
+
+# --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
+INDIVIDUAL_EVENT_DISPLAY_ORDER = [
+    # Finalizações
+    'Gol',
+    'Finalização No Alvo',
+    'Finalização Fora do Alvo',
+    # Passes
+    'Passe Certo Curto',
+    'Passe Certo Longo',
+    #'Passe Errado',
+    'Passe Errado Curto',
+    'Passe Errado Longo',
+    'Passe Chave',
+    'Cruzamento Errado',
+    # Ações de Defesa
+    'Defesa Goleiro',
+    'Defesa Recuperação',
+    'Defesa Corte',
+    'Defesa Desarme',
+    'Defesa Interceptação',
+    'Roubada de Bola',
+    'Duelo Aéreo Ganho',
+    # Outros (serão adicionados na ordem em que aparecem aqui)
+    'Falta Sofrida',
+    'Falta Cometida',
+    'Drible Certo',
+    'Drible Errado',
+    'Drible',
+    'Perda de Posse',
+    'Defesa Drible Sofrido',
+    'Duelo Aéreo Perdido',
+]
 
 
 # --- Funções de Cálculo de Performance (Genérica para Individual) ---
@@ -148,7 +183,18 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
             'Mudança_UI': indicator_text_raw,
             'Mudança_PDF': indicator_text_pdf
         })
-    return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
+    
+    df_performance = pd.DataFrame(comparison_list)
+    
+    # ORDENAR O DATAFRAME DE ACORDO COM A ORDEM PERSONALIZADA
+    df_performance['Event_Name'] = pd.Categorical(
+        df_performance['Event_Name'], 
+        categories=INDIVIDUAL_EVENT_DISPLAY_ORDER, 
+        ordered=True
+    )
+    df_performance = df_performance.sort_values('Event_Name').reset_index(drop=True)
+    
+    return df_performance
 
 
 # --- Nova Função de Cálculo de Performance Coletiva (Compara Casa vs Fora) ---
@@ -168,20 +214,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val:
+            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val:
+            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: 
-            if casa_val > fora_val:
+        else: # Para eventos positivos 
+            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val:
+            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -263,12 +309,11 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    # Título principal (agora é um h1 com estilo, não st.title() duplicado)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
 
-st.write("---") # Linha divisória após os logos e título
+st.write("---") 
 
 
 tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísticas Coletivas"])
@@ -438,7 +483,6 @@ with tab_coletiva:
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
-                # Usar a função para o nome de exibição
                 st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
 
             with col_casa_val:
