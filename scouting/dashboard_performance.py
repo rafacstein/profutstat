@@ -66,11 +66,11 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    'Passe Errado': True, 
+    #'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
-    'Drible': False, 
+    #'Drible': False, 
     'Roubada de Bola': False,
     'Perda de Posse': True, 
     'Falta Cometida': True,
@@ -111,7 +111,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Passes
     'Passe Certo Curto',
     'Passe Certo Longo',
-    'Passe Errado',
+    #'Passe Errado',
     'Passe Errado Curto',
     'Passe Errado Longo',
     'Passe Chave',
@@ -119,7 +119,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Dribles
     'Drible Certo',
     'Drible Errado',
-    'Drible',
+    #'Drible',
     # Ações de Defesa (exceto Duelos Aéreos)
     'Defesa Goleiro',
     'Defesa Recuperação',
