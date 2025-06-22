@@ -6,6 +6,33 @@ from io import BytesIO
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
 
+# --- Inserção de CSS para a Fonte ---
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+    
+    html, body, [class*="st-"] {
+        font-family: 'Roboto', sans-serif;
+    }
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500; /* Um peso médio para títulos para manter modernidade */
+    }
+    
+    /* Ajustes específicos para os cards, garantindo que usem a nova fonte */
+    div[data-testid="stMarkdownContainer"] h5,
+    div[data-testid="stMarkdownContainer"] p {
+        font-family: 'Roboto', sans-serif;
+    }
+
+    /* Reduzir o espaço entre as colunas para um layout mais compacto */
+    .st-emotion-cache-1g8fg5q { /* Classe CSS para as colunas Streamlit */
+        gap: 0.5rem; 
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+
 st.title('📊 Comparativo de Performance do Atleta')
 
 # --- Carregamento de Dados ---
@@ -40,6 +67,7 @@ METRIC_CATEGORIES_CONFIG = {
     "Recepções Erradas": {'events': ['Recepcao Errada'], 'is_negative': True},
 }
 
+
 # --- Pré-cálculo das Médias Globais por Categoria e Jogador ---
 df_categorized_counts_per_game = pd.DataFrame()
 for player in all_players:
@@ -72,15 +100,15 @@ def get_performance_data_by_category(current_game, player_name, df_categorized_d
         current_val = current_game_category_data[category_name].iloc[0] if category_name in current_game_category_data.columns and not current_game_category_data.empty else 0
         avg_val = player_category_avg[category_name].iloc[0] if category_name in player_category_avg.columns and not player_category_avg.empty else 0
 
-        indicator_text_raw = "Mantém"
-        indicator_text_pdf = "Mantém (-)"
+        indicator_text_raw = "Mantém" 
+        indicator_text_pdf = "Mantém (-)" 
 
         if config['is_negative']:
             if current_val < avg_val:
-                indicator_text_raw = "Melhora (↓)"
+                indicator_text_raw = "Melhora (↓)" 
                 indicator_text_pdf = "Melhora (DOWN)"
             elif current_val > avg_val:
-                indicator_text_raw = "Piora (↑)"
+                indicator_text_raw = "Piora (↑)" 
                 indicator_text_pdf = "Piora (UP)"
         else:
             if current_val > avg_val:
@@ -115,7 +143,7 @@ class PDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
         self.ln(2)
     def add_table(self, df_to_print):
-        col_widths = [80, 30, 30, 30]
+        col_widths = [80, 30, 30, 30] 
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(df_to_print.columns.tolist()):
             self.cell(col_widths[i], 7, header, 1, 0, 'C')
@@ -172,25 +200,12 @@ if selected_game and selected_player:
     # Coluna 2: Card de Valor (Atual vs Média)
     # Coluna 3: Card do Indicador (Seta e Texto)
     
-    # Adicionado um estilo CSS para remover o padding padrão das colunas do streamlit
-    # e garantir que as caixas fiquem mais próximas quando necessário.
-    st.markdown("""
-        <style>
-        .st-emotion-cache-1g8fg5q { /* Classe CSS para as colunas Streamlit */
-            gap: 0.5rem; /* Reduz o espaço entre as colunas */
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
-
     for index, row in performance_data_category.iterrows():
-        # A linha principal terá 3 colunas: Nome da Categoria | Valor/Média | Indicador
         col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2]) # Proporções ajustadas
 
         with col_name:
             st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Category']}</h5>", unsafe_allow_html=True)
 
-        # Lógica de cores e setas para os cards
         current_val = int(row['Atual'])
         avg_val = f"{row['Média']:.2f}"
         change_text_ui = row['Mudança_UI']
@@ -260,8 +275,8 @@ if selected_game and selected_player:
                 """,
                 unsafe_allow_html=True
             )
-    # Remove o último st.write('---') que era para separar os cards do botão de download
-    # st.write('---') 
+
+    st.write('---') 
 
     pdf_bytes = create_pdf_report(selected_player, selected_game, performance_data_category)
     st.download_button(
