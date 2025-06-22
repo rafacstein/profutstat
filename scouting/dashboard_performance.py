@@ -35,8 +35,8 @@ st.title('📊 Dashboard de Análise de Performance')
 
 # --- URLs dos Arquivos CSV (locais dos uploads, confirmados por inspeção) ---
 # Usamos os nomes de arquivo dos uploads para garantir o acesso no ambiente
-INDIVIDUAL_CSV_PATH = 'Monitoramento São Bento U13 - CONSOLIDADO INDIVIDUAL.csv'
-COLLECTIVE_CSV_PATH = 'Monitoramento São Bento U13 - CONSOLIDADO COLETIVO.csv'
+GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
+GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
 
 
 # --- Funções de Carregamento de Dados (Cacheado) ---
