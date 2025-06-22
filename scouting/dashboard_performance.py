@@ -92,7 +92,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (INCLUINDO NOVOS E ASSUMINDO PRESENÇA NO CSV)
+# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e INCLUINDO NOVOS)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Posse de bola': False, 
     'Gols': False, 
@@ -293,12 +293,12 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, 
-            'Média': avg_val_casa, 
-            'Mudança_UI': indicator_text, # Texto do status (ex: "Melhor", "Pior")
+            'Atual': current_val_casa, # Agora é o valor da Casa
+            'Média': avg_val_casa, # Agora é a Média da Casa
+            'Mudança_UI': indicator_text, # Texto de comparação
             'Comparação': indicator_text, # Mantém Comparação para o PDF
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
-            'Color_UI': display_color # Cor para o card
+            'Color_UI': display_color
         })
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
@@ -320,10 +320,10 @@ class PDF(FPDF):
     def add_table(self, df_to_print):
         headers = df_to_print.columns.tolist()
         
-        if 'Média' in headers: 
+        if 'Média' in headers: # Individual
             col_widths = [80, 30, 30, 30] 
         else: # Coletivo (agora só Evento, Casa, Fora)
-            col_widths = [80, 45, 45] # Ajustado para 3 colunas
+            col_widths = [80, 45, 45] 
             
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(headers):
@@ -592,4 +592,9 @@ with tab_coletiva:
         st.download_button(
             label="📄 Exportar Relatório Coletivo como PDF",
             data=pdf_bytes_collective,
-            file_name=f"Rel
+            file_name=f"Relatorio_Performance_Coletiva_EC_Sao_Bento_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf",
+            mime="application/pdf"
+        )
+
+    else:
+        st.info('Selecione um jogo para ver a performance coletiva do EC São Bento.')
