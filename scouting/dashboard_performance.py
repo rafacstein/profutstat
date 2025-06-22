@@ -51,7 +51,7 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    if 'Timestamp' in df.columns: 
+    if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
     return df
@@ -263,12 +263,12 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    # Removido o st.title() duplicado aqui
-    st.markdown("<h1 style='text-align: center; color: #333;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
+    # Título principal (agora é um h1 com estilo, não st.title() duplicado)
+    st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
 
-st.write("---") 
+st.write("---") # Linha divisória após os logos e título
 
 
 tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísticas Coletivas"])
