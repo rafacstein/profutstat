@@ -33,6 +33,11 @@ st.markdown("""
 
 st.title('📊 Dashboard de Análise de Performance')
 
+# --- URLs dos Arquivos CSV no GitHub (RAW) ---
+GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
+GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
+
+
 # --- Funções de Carregamento de Dados (Cacheado) ---
 
 @st.cache_data
@@ -81,21 +86,20 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado nos eventos coletivos simulados)
+# Para Estatísticas Coletivas 
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
-    'Passe': False, # Geralmente, mais passes é melhor
-    'Perda de Posse': True, # Perda é negativa
-    'Recuperação de Posse': False, # Recuperar posse é positivo
-    'Finalização': False, # Mais finalizações é geralmente positivo
-    'Falta': True, # Faltas cometidas é negativo
-    'Defesa Goleiro': False, # Defesas do goleiro é positivo
-    'Cruzamento': False, # Cruzamentos (total) é geralmente positivo
+    'Passe': False, 
+    'Perda de Posse': True, 
+    'Recuperação de Posse': False, 
+    'Finalização': False, 
+    'Falta': True, 
+    'Defesa Goleiro': False, 
+    'Cruzamento': False, 
 }
 
 
 # --- Funções de Cálculo de Performance ---
 
-# Função genérica para obter dados de performance (adaptada para Player ou Team)
 def get_performance_data(entity_name, game_name, df_grouped_data, overall_averages_data, config_events, entity_col_name):
     comparison_list = []
     epsilon = 0.01 
@@ -149,7 +153,7 @@ def get_performance_data(entity_name, game_name, df_grouped_data, overall_averag
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
-        self.cell(0, 10, 'Relatório de Performance', 0, 1, 'C') # Título mais genérico
+        self.cell(0, 10, 'Relatório de Performance', 0, 1, 'C') 
         self.ln(5)
     def footer(self):
         self.set_y(-15)
@@ -198,7 +202,7 @@ with tab_individual:
     st.header("Análise de Performance Individual")
 
     # Carrega dados individuais
-    df_individual = load_individual_data('Monitoramento São Bento U13 - CONSOLIDADO INDIVIDUAL.csv')
+    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
     df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
@@ -324,7 +328,7 @@ with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
     # Carrega dados coletivos
-    df_collective = load_collective_data('Monitoramento São Bento U13 - CONSOLIDADO COLETIVO.csv')
+    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL)
     df_collective_grouped = df_collective.groupby(['Jogo', 'Team', 'Evento descrição'])['Count'].sum().reset_index()
     collective_overall_averages = df_collective_grouped.groupby(['Team', 'Evento descrição'])['Count'].mean().reset_index()
     collective_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
