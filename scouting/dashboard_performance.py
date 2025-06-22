@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
+from itertools import product # CORRIGIDO: Importado 'product' do módulo 'itertools'
 
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
@@ -53,7 +54,7 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    if 'Timestamp' in df.columns: 
+    if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
     return df
@@ -258,7 +259,6 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
     
     comparison_list = []
     
-    # Epsilon ajustado para 0.01
     epsilon = 0.01
 
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
@@ -589,7 +589,7 @@ with tab_coletiva:
                         background-color: {row['Color_UI']}20;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
                         height: 75px;
-                        display: flex; flex-direction: column; justify-content: center; align-items: center;
+                        display: flex; flex-direction: column; justify_content: center; align-items: center;
                         text-align: center;
                         margin-bottom: 10px;
                     ">
