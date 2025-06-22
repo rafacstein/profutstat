@@ -100,10 +100,11 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Cartões amarelos': True, 
     'Cartões vermelhos': True, 
     'Impedimentos': True, 
-    'Desarmes': False,         
-    'Interceptações': False,   
-    'Passes Certos': False,    
-    'Passes Errados': True,    
+    # NOVOS EVENTOS SOLICITADOS PARA O COLETIVO (Assumido que os nomes no CSV são estes)
+    'Desarmes': False,         # Assumido como positivo
+    'Interceptações': False,   # Assumido como positivo
+    'Passes Certos': False,    # Assumido como positivo
+    'Passes Errados': True,    # Assumido como negativo
 }
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
@@ -296,8 +297,8 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, 
-            'Média': avg_val_casa, 
+            'Atual': current_val_casa, # Agora é o valor da Casa
+            'Média': avg_val_casa, # Agora é a Média da Casa
             'Mudança_UI': indicator_text, # Reutiliza para o texto com seta
             'Comparação': indicator_text, # Mantém Comparação para o PDF
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
@@ -335,7 +336,7 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                if headers[i] == 'Comparação': # Coletivo
+                if headers[i] == 'Comparação':
                     item_str = str(item) # Texto já é 'Melhor', 'Pior', 'Equilíbrio'
                 elif headers[i] == 'Mudança_PDF': # Individual
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
