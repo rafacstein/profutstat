@@ -32,9 +32,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# Título principal (agora é um h1 com estilo, SEM st.title() DUPLICADO)
-# st.title('📊 Dashboard de Análise de Performance') <-- ESTA LINHA FOI REMOVIDA
-
+st.title('📊 Dashboard de Análise de Performance')
 
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
@@ -94,7 +92,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e INCLUINDO NOVOS)
+# Para Estatísticas Coletivas (INCLUINDO NOVOS E ASSUMINDO PRESENÇA NO CSV)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Posse de bola': False, 
     'Gols': False, 
@@ -109,6 +107,7 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Interceptações': False,   
     'Passes Certos': False,    
     'Passes Errados': True,    
+    '% de Posse de bola': False, # NOVO EVENTO: Porcentagem de Posse de Bola
 }
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
@@ -294,9 +293,9 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, # Agora é o valor da Casa
-            'Média': avg_val_casa, # Agora é a Média da Casa
-            'Mudança_UI': indicator_text, # Reutiliza para o texto com seta
+            'Atual': current_val_casa, 
+            'Média': avg_val_casa, 
+            'Mudança_UI': indicator_text, # Texto do status (ex: "Melhor", "Pior")
             'Comparação': indicator_text, # Mantém Comparação para o PDF
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
             'Color_UI': display_color # Cor para o card
@@ -323,9 +322,9 @@ class PDF(FPDF):
         
         if 'Média' in headers: 
             col_widths = [80, 30, 30, 30] 
-        else: 
-            col_widths = [60, 30, 30, 60] 
-
+        else: # Coletivo (agora só Evento, Casa, Fora)
+            col_widths = [80, 45, 45] # Ajustado para 3 colunas
+            
         self.set_font('Arial', 'B', 9)
         for i, header in enumerate(headers):
             self.cell(col_widths[i], 7, header, 1, 0, 'C')
@@ -373,7 +372,6 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    # Título principal (h1 com estilo, SEM st.title() duplicado)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
@@ -539,7 +537,7 @@ with tab_coletiva:
         # Reutiliza a função get_display_event_name
         
         for index, row in performance_data_collective.iterrows():
-            # Layout com 3 colunas para o coletivo: Nome do Evento | Valor (Casa) | Indicador
+            # Layout com 3 colunas para o coletivo: Nome do Evento | Valor Atual (Casa) | Indicador
             col_name, col_value_card, col_indicator_collective = st.columns([0.4, 0.4, 0.2]) 
             
             with col_name:
@@ -594,9 +592,4 @@ with tab_coletiva:
         st.download_button(
             label="📄 Exportar Relatório Coletivo como PDF",
             data=pdf_bytes_collective,
-            file_name=f"Relatorio_Performance_Coletiva_EC_Sao_Bento_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf",
-            mime="application/pdf"
-        )
-
-    else:
-        st.info('Selecione um jogo para ver a performance coletiva do EC São Bento.')
+            file_name=f"Rel
