@@ -37,6 +37,10 @@ st.title('📊 Dashboard de Análise de Performance')
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
 
+# --- URLs das Imagens dos Escudos (AGORA COM ENDEREÇOS RAW CORRIGIDOS!) ---
+PROFUTSTAT_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/profutstat_logo.png"
+SAO_BENTO_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/ec_sao_bento.png"
+
 
 # --- Funções de Carregamento de Dados (agora aceitam URL novamente) ---
 @st.cache_data
@@ -80,7 +84,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Finalização No Alvo': False, 
     'Defesa Interceptação': False, 
     'Duelo Aéreo Ganho': False, 
-    'Defesa Goleiro': False, # Manter "Defesa Goleiro"
+    'Defesa Goleiro': False, 
     'Passe Chave': False, 
 }
 
@@ -166,20 +170,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
+            if casa_val < fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
+            elif casa_val > fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: # Para eventos positivos 
-            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
+        else: 
+            if casa_val > fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
+            elif casa_val < fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -255,6 +259,20 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
 
 
 # --- Estrutura do Dashboard com Abas ---
+# Adiciona os escudos no topo do dashboard
+col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
+
+with col_logo1:
+    st.image(PROFUTSTAT_LOGO_URL, width=80) 
+with col_title_main:
+    st.title('') 
+    st.markdown("<h1 style='text-align: center; color: #333;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
+with col_logo2:
+    st.image(SAO_BENTO_LOGO_URL, width=80) 
+
+st.write("---") 
+
+
 tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísticas Coletivas"])
 
 # --- TAB DE ESTATÍSTICAS INDIVIDUAIS ---
@@ -306,9 +324,7 @@ with tab_individual:
             col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
             with col_name:
-                # Usar a função para o nome de exibição
-                display_name = get_display_event_name(row['Event_Name'])
-                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{display_name}</h5>", unsafe_allow_html=True)
+                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
 
             current_val = int(row['Atual'])
             avg_val = f"{row['Média']:.2f}"
@@ -420,17 +436,13 @@ with tab_coletiva:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
-        # Função para obter o nome do evento para exibição no card (também para coletivo)
-        # Reutiliza a mesma lógica de remoção de 'Defesa' exceto 'Defesa Goleiro'
-        # Mesmo que no coletivo só exista 'Defesa Goleiro', a função é genérica.
+        # Reutiliza a função get_display_event_name
         
         for index, row in performance_data_collective.iterrows():
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
-                # Usar a função para o nome de exibição
-                display_name = get_display_event_name(row['Event_Name'])
-                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{display_name}</h5>", unsafe_allow_html=True)
+                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
 
             with col_casa_val:
                 st.markdown(
