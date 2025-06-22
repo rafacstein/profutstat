@@ -298,9 +298,10 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
             'Event_Name': event_name, 
             'Atual': current_val_casa, 
             'Média': avg_val_casa, 
-            'Comparação': indicator_text, 
-            'Arrow_UI': display_arrow, 
-            'Color_UI': display_color
+            'Mudança_UI': indicator_text, # Reutiliza para o texto com seta
+            'Comparação': indicator_text, # Mantém Comparação para o PDF
+            'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
+            'Color_UI': display_color # Cor para o card
         })
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
@@ -334,8 +335,10 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                if headers[i] == 'Comparação':
-                    item_str = str(item).replace('Casa Melhor', 'Casa').replace('Fora Melhor', 'Fora').replace('Equilíbrio', '=')
+                if headers[i] == 'Comparação': # Coletivo
+                    item_str = str(item) # Texto já é 'Melhor', 'Pior', 'Equilíbrio'
+                elif headers[i] == 'Mudança_PDF': # Individual
+                    item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
                 else:
                     item_str = str(item)
                 self.cell(col_widths[i], 6, item_str, 1, 0, 'C')
@@ -351,7 +354,7 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Comparação']].copy()
+        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Comparação']].copy() # Colunas para coletivo
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Comparação': 'Status'}, inplace=True)
         df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
     else: # Individual
@@ -464,12 +467,8 @@ with tab_individual:
                         display: flex; flex-direction: column; justify-content: center;
                         margin-bottom: 10px;
                     ">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">
-                            {current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small>
-                        </p>
-                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">
-                            Média: {avg_val}
-                        </p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
+                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {avg_val}</p>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -489,12 +488,8 @@ with tab_individual:
                         text-align: center;
                         margin-bottom: 10px;
                     ">
-                        <p style="font-size: 1.5em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">
-                            {display_arrow}
-                        </p>
-                        <p style="font-size: 0.7em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">
-                            {indicator_text}
-                        </p>
+                        <p style="font-size: 1.5em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">{display_arrow}</p>
+                        <p style="font-size: 0.7em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">{indicator_text}</p>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -523,7 +518,7 @@ with tab_coletiva:
     df_collective_raw = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) 
     collective_overall_averages_corrected = preprocess_collective_data_for_averages(df_collective_raw)
     
-    all_collective_games = sorted(df_collective_raw['Jogo'].unique().tolist()) # Usa os jogos do DF raw
+    all_collective_games = sorted(df_collective_raw['Jogo'].unique().tolist()) 
     
     selected_collective_game = st.selectbox('Jogo Atual (Coletivo):', all_collective_games)
 
@@ -545,7 +540,6 @@ with tab_coletiva:
         # Reutiliza a função get_display_event_name
         
         for index, row in performance_data_collective.iterrows():
-            # Layout com 3 colunas: Nome do Evento | Valor Atual (Casa) | Indicador
             col_name, col_value_card, col_indicator_collective = st.columns([0.4, 0.4, 0.2]) 
             
             with col_name:
@@ -564,12 +558,8 @@ with tab_coletiva:
                         display: flex; flex-direction: column; justify-content: center;
                         margin-bottom: 10px;
                     ">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">
-                            {int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Atual)</small>
-                        </p>
-                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">
-                            Média: {row['Média']:.2f} <small style="font-size: 0.4em; color: #777;">(Casa)</small>
-                        </p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
+                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {row['Média']:.2f} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -589,12 +579,8 @@ with tab_coletiva:
                         text-align: center;
                         margin-bottom: 10px;
                     ">
-                        <p style="font-size: 1.5em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">
-                            {row['Arrow_UI']}
-                        </p>
-                        <p style="font-size: 0.7em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">
-                            {row['Comparação'].split(' ')[0]}
-                        </p>
+                        <p style="font-size: 1.5em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Arrow_UI']}</p>
+                        <p style="font-size: 0.7em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Comparação'].split(' ')[0]}</p>
                     </div>
                     """,
                     unsafe_allow_html=True
