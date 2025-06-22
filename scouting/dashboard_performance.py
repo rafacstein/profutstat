@@ -56,14 +56,12 @@ def load_collective_data(url):
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
 # Para Estatísticas Individuais (baseado no CSV individual e inspecionado)
-# CORRIGIDO: 'Chute Certo' e 'Chute Errado' removidos
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    # 'Chute Certo': False,  <-- Removido
-    #'Passe Errado': True, 
+    'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
@@ -73,17 +71,16 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Falta Cometida': True,
     'Gol': False, 
     'Defesa Recuperação': False, 
-    'Finalização Fora do Alvo': True, # OK - Mantido
+    'Finalização Fora do Alvo': True, 
     'Defesa Corte': False, 
     'Defesa Desarme': False, 
     'Cruzamento Errado': True, 
-    'Drible Errado': True, # Duplicidade corrigida
     'Defesa Drible Sofrido': True, 
     'Duelo Aéreo Perdido': True, 
-    'Finalização No Alvo': False, # OK - Mantido
+    'Finalização No Alvo': False, 
     'Defesa Interceptação': False, 
     'Duelo Aéreo Ganho': False, 
-    'Defesa Goleiro': False, 
+    'Defesa Goleiro': False, # Manter "Defesa Goleiro"
     'Passe Chave': False, 
 }
 
@@ -265,7 +262,7 @@ with tab_individual:
     st.header("Análise de Performance Individual")
 
     # Carrega dados individuais
-    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL) # Carrega direto do GitHub URL
+    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL) 
     df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
@@ -295,12 +292,23 @@ with tab_individual:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
+        # Função para obter o nome do evento para exibição no card
+        def get_display_event_name(original_event_name):
+            if original_event_name == 'Defesa Goleiro':
+                return original_event_name
+            elif original_event_name.startswith('Defesa '):
+                return original_event_name.replace('Defesa ', '')
+            else:
+                return original_event_name
+
 
         for index, row in performance_data_individual.iterrows():
             col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
             with col_name:
-                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Event_Name']}</h5>", unsafe_allow_html=True)
+                # Usar a função para o nome de exibição
+                display_name = get_display_event_name(row['Event_Name'])
+                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{display_name}</h5>", unsafe_allow_html=True)
 
             current_val = int(row['Atual'])
             avg_val = f"{row['Média']:.2f}"
@@ -392,16 +400,13 @@ with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
     # Carrega dados coletivos
-    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) # Carrega direto do GitHub URL
+    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) 
     
-    # Apenas pegamos os jogos únicos para o filtro, pois não há Team ou Timestamp
     all_collective_games = sorted(df_collective['Jogo'].unique().tolist())
     
-    # Filtro coletivo (apenas por Jogo)
     selected_collective_game = st.selectbox('Jogo Atual (Coletivo):', all_collective_games)
 
     if selected_collective_game:
-        # Chama a nova função para dados coletivos
         performance_data_collective = get_collective_performance_data(
             selected_collective_game, df_collective
         )
@@ -415,12 +420,17 @@ with tab_coletiva:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
-
+        # Função para obter o nome do evento para exibição no card (também para coletivo)
+        # Reutiliza a mesma lógica de remoção de 'Defesa' exceto 'Defesa Goleiro'
+        # Mesmo que no coletivo só exista 'Defesa Goleiro', a função é genérica.
+        
         for index, row in performance_data_collective.iterrows():
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
-                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Event_Name']}</h5>", unsafe_allow_html=True)
+                # Usar a função para o nome de exibição
+                display_name = get_display_event_name(row['Event_Name'])
+                st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{display_name}</h5>", unsafe_allow_html=True)
 
             with col_casa_val:
                 st.markdown(
