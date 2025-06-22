@@ -34,7 +34,6 @@ st.markdown("""
 st.title('📊 Dashboard de Análise de Performance')
 
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
-# CORRIGIDO: Usando as URLs RAW do GitHub para carregamento direto
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
 GITHUB_COLLECTIVE_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20COLETIVO.csv'
 
@@ -50,7 +49,6 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    # O arquivo coletivo não tem 'Timestamp'. A coluna de evento é 'Evento'.
     if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
@@ -58,13 +56,13 @@ def load_collective_data(url):
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
 # Para Estatísticas Individuais (baseado no CSV individual e inspecionado)
+# CORRIGIDO: 'Chute Certo' e 'Chute Errado' removidos
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    'Chute Certo': False, 
-    'Chute Errado': True, 
+    # 'Chute Certo': False,  <-- Removido
     'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
@@ -75,13 +73,14 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Falta Cometida': True,
     'Gol': False, 
     'Defesa Recuperação': False, 
-    'Finalização Fora do Alvo': True, 
+    'Finalização Fora do Alvo': True, # OK - Mantido
     'Defesa Corte': False, 
     'Defesa Desarme': False, 
     'Cruzamento Errado': True, 
+    'Drible Errado': True, # Duplicidade corrigida
     'Defesa Drible Sofrido': True, 
     'Duelo Aéreo Perdido': True, 
-    'Finalização No Alvo': False, 
+    'Finalização No Alvo': False, # OK - Mantido
     'Defesa Interceptação': False, 
     'Duelo Aéreo Ganho': False, 
     'Defesa Goleiro': False, 
@@ -170,20 +169,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val:
+            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val:
+            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: 
-            if casa_val > fora_val:
+        else: # Para eventos positivos 
+            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val:
+            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -266,8 +265,7 @@ with tab_individual:
     st.header("Análise de Performance Individual")
 
     # Carrega dados individuais
-    # CORRIGIDO: Usando URL RAW do GitHub para carregar
-    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
+    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL) # Carrega direto do GitHub URL
     df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
@@ -394,8 +392,7 @@ with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
     # Carrega dados coletivos
-    # CORRIGIDO: Usando URL RAW do GitHub para carregar
-    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL)
+    df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) # Carrega direto do GitHub URL
     
     # Apenas pegamos os jogos únicos para o filtro, pois não há Team ou Timestamp
     all_collective_games = sorted(df_collective['Jogo'].unique().tolist())
