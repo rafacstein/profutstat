@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
+from itertools import product # Importado para ajudar na criação de combinações
 
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
@@ -42,7 +43,7 @@ PROFUTSTAT_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/m
 SAO_BENTO_LOGO_URL = "https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/ec_sao_bento.png"
 
 
-# --- Funções de Carregamento de Dados (agora aceitam URL novamente) ---
+# --- Funções de Carregamento de Dados ---
 @st.cache_data
 def load_individual_data(url):
     df = pd.read_csv(url)
@@ -53,23 +54,23 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    if 'Timestamp' in df.columns: # Checa se 'Timestamp' existe antes de converter
+    if 'Timestamp' in df.columns: 
         df['Timestamp'] = pd.to_datetime(df['Timestamp'])
     df['Evento'] = df['Evento'].str.strip() 
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
-# Para Estatísticas Individuais (VOLTANDO A EVENTOS INDIVIDUAIS, COM CORREÇÕES DE NOMES E COMPLETA)
+# Para Estatísticas Individuais (baseado no CSV individual e inspecionado)
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    #'Passe Errado': True, 
+    'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
-    #'Drible': False, 
+    'Drible': False, 
     'Roubada de Bola': False,
     'Perda de Posse': True, 
     'Falta Cometida': True,
@@ -102,7 +103,6 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
 }
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
-# Ajustado para que Duelo Aéreo Ganho e Perdido sejam os dois últimos
 INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Finalizações
     'Gol',
@@ -111,7 +111,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Passes
     'Passe Certo Curto',
     'Passe Certo Longo',
-    #'Passe Errado',
+    'Passe Errado',
     'Passe Errado Curto',
     'Passe Errado Longo',
     'Passe Chave',
@@ -119,7 +119,7 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Dribles
     'Drible Certo',
     'Drible Errado',
-    #'Drible',
+    'Drible',
     # Ações de Defesa (exceto Duelos Aéreos)
     'Defesa Goleiro',
     'Defesa Recuperação',
@@ -135,6 +135,60 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     'Duelo Aéreo Ganho',
     'Duelo Aéreo Perdido',
 ]
+
+# --- Função de Pré-processamento CORRIGIDA para Médias Individuais ---
+@st.cache_data
+def preprocess_individual_data_for_averages(df_raw_individual):
+    # Garante que os nomes dos eventos estejam limpos
+    df_raw_individual['Evento descrição'] = df_raw_individual['Evento descrição'].str.strip()
+
+    # Step 1: Obter todos os jogadores, jogos e eventos únicos do dataset
+    all_players = df_raw_individual['Player'].unique().tolist()
+    all_games_individual = df_raw_individual['Jogo'].unique().tolist()
+    all_event_descriptions = df_raw_individual['Evento descrição'].unique().tolist()
+
+    # Step 2: Criar um DataFrame com todas as combinações POSSÍVEIS (Jogador, Jogo, Evento)
+    # APENAS para os jogadores e jogos que realmente existem.
+    # Primeiro, obtenha os pares reais (Jogador, Jogo) da sua base de dados
+    actual_player_game_pairs = df_raw_individual[['Player', 'Jogo']].drop_duplicates()
+
+    # Combine os pares reais (Jogador, Jogo) com todos os Eventos únicos
+    all_relevant_combinations = pd.DataFrame(list(product(
+        actual_player_game_pairs['Player'].unique(), # Garante que só jogadores que existem
+        actual_player_game_pairs['Jogo'].unique(),   # E jogos que existem
+        all_event_descriptions
+    )), columns=['Player', 'Jogo', 'Evento descrição'])
+    
+    # Filtra essas combinações para manter APENAS os pares (Jogador, Jogo) que realmente ocorreram
+    all_relevant_combinations = pd.merge(
+        all_relevant_combinations, 
+        actual_player_game_pairs, 
+        on=['Player', 'Jogo'], 
+        how='inner'
+    )
+
+    # Agrupar os dados brutos para ter a contagem por (Jogo, Jogador, Evento)
+    df_grouped_per_event_per_game = df_raw_individual.groupby(
+        ['Jogo', 'Player', 'Evento descrição']
+    )['Count'].sum().reset_index()
+
+    # Mesclar as contagens reais com todas as combinações possíveis. Contagens não existentes virarão NaN.
+    df_full_individual_counts = pd.merge(
+        all_relevant_combinations, 
+        df_grouped_per_event_per_game, 
+        on=['Jogo', 'Player', 'Evento descrição'], 
+        how='left'
+    )
+    # Preencher NaN com 0, o que garante que eventos não realizados em uma partida contem como 0.
+    df_full_individual_counts['Count'].fillna(0, inplace=True)
+
+    # Step 3: Calcular a média global CORRIGIDA
+    # Agora a média é feita sobre o 'Count' (incluindo 0s) para cada (Jogador, Evento)
+    player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
+    player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
+    
+    # Retorna o df_grouped original (para consulta do jogo atual) e as médias corrigidas
+    return df_grouped_per_event_per_game, player_overall_averages_corrected
 
 
 # --- Funções de Cálculo de Performance (Genérica para Individual) ---
@@ -191,10 +245,11 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
     # ORDENAR O DATAFRAME DE ACORDO COM A ORDEM PERSONALIZADA
     # Cria uma cópia da lista de categorias para usar no Categorical, garantindo que todos os eventos estejam lá.
     # Mesmo se um evento não tiver ocorrido no jogo ou na média, ele mantém a ordem.
-    all_possible_events_in_order = [e for e in INDIVIDUAL_EVENT_DISPLAY_ORDER if e in df_performance['Event_Name'].unique()]
+    # Garante que as categorias de ORDER existam nos dados antes de usar no Categorical
+    existing_events_in_order = [e for e in INDIVIDUAL_EVENT_DISPLAY_ORDER if e in df_performance['Event_Name'].unique()]
     df_performance['Event_Name'] = pd.Categorical(
         df_performance['Event_Name'], 
-        categories=all_possible_events_in_order, 
+        categories=existing_events_in_order, 
         ordered=True
     )
     df_performance = df_performance.sort_values('Event_Name').reset_index(drop=True)
@@ -219,20 +274,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val:
+            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val:
+            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: 
-            if casa_val > fora_val:
+        else: # Para eventos positivos 
+            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val:
+            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -327,14 +382,13 @@ tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísti
 with tab_individual:
     st.header("Análise de Performance Individual")
 
-    # Carrega dados individuais
-    df_individual = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL) 
-    df_individual_grouped = df_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
-    individual_overall_averages = df_individual_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
-    individual_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
+    # Carrega dados individuais (e faz o pré-processamento para médias corrigidas)
+    df_individual_raw = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
+    df_grouped_per_event_per_game_individual, player_overall_averages_corrected = preprocess_individual_data_for_averages(df_individual_raw)
 
-    all_individual_games = sorted(df_individual_grouped['Jogo'].unique().tolist())
-    all_players = sorted(df_individual_grouped['Player'].unique().tolist())
+    # Usamos os dados do preprocessamento para popular os selectboxes
+    all_individual_games = sorted(df_grouped_per_event_per_game_individual['Jogo'].unique().tolist())
+    all_players = sorted(df_grouped_per_event_per_game_individual['Player'].unique().tolist())
 
     # Filtros individuais
     col_ind_game, col_ind_player = st.columns(2)
@@ -345,8 +399,8 @@ with tab_individual:
 
     if selected_individual_game and selected_player:
         performance_data_individual = get_performance_data_individual(
-            selected_player, selected_individual_game, df_individual_grouped, 
-            individual_overall_averages
+            selected_player, selected_individual_game, 
+            df_grouped_per_event_per_game_individual, player_overall_averages_corrected # Passa os DFs processados
         )
 
         st.subheader(f'Performance de {selected_player} no jogo: {selected_individual_game}')
@@ -364,12 +418,6 @@ with tab_individual:
                 return original_event_name
             elif original_event_name.startswith('Defesa '):
                 return original_event_name.replace('Defesa ', '')
-            # Regras para outros nomes que você pode querer simplificar para exibição
-            elif original_event_name.startswith('Passe Errado ('): # Para Passes Errados (Geral)
-                return original_event_name.replace(' (Geral)', '')
-            elif original_event_name.startswith('Drible ('): # Para Drible (Geral)
-                return original_event_name.replace(' (Geral)', '')
-            # Adicionar outras regras conforme necessário
             return original_event_name
 
 
