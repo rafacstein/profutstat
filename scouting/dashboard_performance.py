@@ -59,7 +59,7 @@ def load_collective_data(url):
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
-# Para Estatísticas Individuais (baseado no CSV individual e inspecionado)
+# Para Estatísticas Individuais (VOLTANDO A EVENTOS INDIVIDUAIS, COM CORREÇÕES DE NOMES E COMPLETA)
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
@@ -69,7 +69,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Falta Sofrida': False,
     'Drible Certo': False,
     'Drible Errado': True,
-    'Drible': False, 
+    #'Drible': False, 
     'Roubada de Bola': False,
     'Perda de Posse': True, 
     'Falta Cometida': True,
@@ -102,6 +102,7 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
 }
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
+# Ajustado para que Duelo Aéreo Ganho e Perdido sejam os dois últimos
 INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     # Finalizações
     'Gol',
@@ -115,22 +116,23 @@ INDIVIDUAL_EVENT_DISPLAY_ORDER = [
     'Passe Errado Longo',
     'Passe Chave',
     'Cruzamento Errado',
-    # Ações de Defesa
+    # Dribles
+    'Drible Certo',
+    'Drible Errado',
+    #'Drible',
+    # Ações de Defesa (exceto Duelos Aéreos)
     'Defesa Goleiro',
     'Defesa Recuperação',
     'Defesa Corte',
     'Defesa Desarme',
     'Defesa Interceptação',
     'Roubada de Bola',
-    'Duelo Aéreo Ganho',
-    # Outros (serão adicionados na ordem em que aparecem aqui)
+    'Defesa Drible Sofrido', 
+    'Perda de Posse',
     'Falta Sofrida',
     'Falta Cometida',
-    'Drible Certo',
-    'Drible Errado',
-    'Drible',
-    'Perda de Posse',
-    'Defesa Drible Sofrido',
+    # Duelos Aéreos (AGORA NO FINAL DA LISTA)
+    'Duelo Aéreo Ganho',
     'Duelo Aéreo Perdido',
 ]
 
@@ -187,9 +189,12 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
     df_performance = pd.DataFrame(comparison_list)
     
     # ORDENAR O DATAFRAME DE ACORDO COM A ORDEM PERSONALIZADA
+    # Cria uma cópia da lista de categorias para usar no Categorical, garantindo que todos os eventos estejam lá.
+    # Mesmo se um evento não tiver ocorrido no jogo ou na média, ele mantém a ordem.
+    all_possible_events_in_order = [e for e in INDIVIDUAL_EVENT_DISPLAY_ORDER if e in df_performance['Event_Name'].unique()]
     df_performance['Event_Name'] = pd.Categorical(
         df_performance['Event_Name'], 
-        categories=INDIVIDUAL_EVENT_DISPLAY_ORDER, 
+        categories=all_possible_events_in_order, 
         ordered=True
     )
     df_performance = df_performance.sort_values('Event_Name').reset_index(drop=True)
@@ -214,20 +219,20 @@ def get_collective_performance_data(game_name, df_collective_raw_data):
         display_arrow = "=" 
 
         if is_negative_event: 
-            if casa_val < fora_val: # Casa tem menos que Fora (para negativo) = Casa Melhor
+            if casa_val < fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↓" 
-            elif casa_val > fora_val: # Casa tem mais que Fora (para negativo) = Fora Melhor
+            elif casa_val > fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↑" 
-        else: # Para eventos positivos 
-            if casa_val > fora_val: # Casa tem mais que Fora (para positivo) = Casa Melhor
+        else: 
+            if casa_val > fora_val:
                 indicator_text = "Casa Melhor"
                 display_color = "#28a745" 
                 display_arrow = "↑" 
-            elif casa_val < fora_val: # Casa tem menos que Fora (para positivo) = Fora Melhor
+            elif casa_val < fora_val:
                 indicator_text = "Fora Melhor"
                 display_color = "#dc3545" 
                 display_arrow = "↓" 
@@ -359,8 +364,13 @@ with tab_individual:
                 return original_event_name
             elif original_event_name.startswith('Defesa '):
                 return original_event_name.replace('Defesa ', '')
-            else:
-                return original_event_name
+            # Regras para outros nomes que você pode querer simplificar para exibição
+            elif original_event_name.startswith('Passe Errado ('): # Para Passes Errados (Geral)
+                return original_event_name.replace(' (Geral)', '')
+            elif original_event_name.startswith('Drible ('): # Para Drible (Geral)
+                return original_event_name.replace(' (Geral)', '')
+            # Adicionar outras regras conforme necessário
+            return original_event_name
 
 
         for index, row in performance_data_individual.iterrows():
@@ -479,6 +489,8 @@ with tab_coletiva:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
+        # Reutiliza a função get_display_event_name
+        
         for index, row in performance_data_collective.iterrows():
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
