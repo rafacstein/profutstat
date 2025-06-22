@@ -50,8 +50,8 @@ def load_individual_data(url):
 @st.cache_data
 def load_collective_data(url):
     df = pd.read_csv(url)
-    df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df['Evento descrição'] = df['Evento descrição'].str.strip()
+    # O arquivo coletivo não tem 'Timestamp'. 'Evento' é o nome da coluna.
+    df['Evento'] = df['Evento'].str.strip() # Ajustar para o nome correto da coluna e strip
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
@@ -61,8 +61,8 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Certo Longo': False,
     'Passe Errado Curto': True,
     'Passe Errado Longo': True,
-    'Chute Certo': False,
-    'Chute Errado': True,
+    'Chute Certo': False, 
+    'Chute Errado': True, 
     'Passe Errado': True, 
     'Falta Sofrida': False,
     'Drible Certo': False,
@@ -86,7 +86,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas 
+# Para Estatísticas Coletivas (Baseado nos nomes de eventos do arquivo coletivo)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Passe': False, 
     'Perda de Posse': True, 
@@ -98,22 +98,22 @@ EVENTO_NATUREZA_CONFIG_COLETIVA = {
 }
 
 
-# --- Funções de Cálculo de Performance ---
+# --- Funções de Cálculo de Performance (Genérica para Individual) ---
 
-def get_performance_data(entity_name, game_name, df_grouped_data, overall_averages_data, config_events, entity_col_name):
+def get_performance_data_individual(player_name, game_name, df_grouped_data, overall_averages_data):
     comparison_list = []
     epsilon = 0.01 
 
-    for event_name, is_negative_event in config_events.items():
+    for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_INDIVIDUAL.items():
         current_val_series = df_grouped_data[
             (df_grouped_data['Jogo'] == game_name) &
-            (df_grouped_data[entity_col_name] == entity_name) &
+            (df_grouped_data['Player'] == player_name) &
             (df_grouped_data['Evento descrição'] == event_name) 
         ]['Count']
         current_val = current_val_series.iloc[0] if not current_val_series.empty else 0
 
         avg_val_series = overall_averages_data[
-            (overall_averages_data[entity_col_name] == entity_name) &
+            (overall_averages_data['Player'] == player_name) &
             (overall_averages_data['Evento descrição'] == event_name) 
         ]['Média']
         avg_val = avg_val_series.iloc[0] if not avg_val_series.empty else 0
@@ -149,7 +149,54 @@ def get_performance_data(entity_name, game_name, df_grouped_data, overall_averag
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
 
-# --- Geração de PDF (Genérica para Player ou Team) ---
+# --- Nova Função de Cálculo de Performance Coletiva (Compara Casa vs Fora) ---
+def get_collective_performance_data(game_name, df_collective_raw_data):
+    game_data = df_collective_raw_data[df_collective_raw_data['Jogo'] == game_name]
+    
+    comparison_list = []
+    
+    for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
+        event_row = game_data[game_data['Evento'] == event_name]
+        
+        casa_val = event_row['Casa'].iloc[0] if not event_row.empty else 0
+        fora_val = event_row['Fora'].iloc[0] if not event_row.empty else 0
+
+        indicator_text = "Equilíbrio (=)"
+        display_color = "#6c757d" # Cinza
+        display_arrow = "="
+
+        # Lógica de comparação Casa vs Fora
+        if is_negative_event: # Para eventos negativos (Piora se Casa > Fora)
+            if casa_val < fora_val:
+                indicator_text = "Casa Melhor (↓)"
+                display_color = "#28a745" # Verde
+                display_arrow = "↓"
+            elif casa_val > fora_val:
+                indicator_text = "Fora Melhor (↑)"
+                display_color = "#dc3545" # Vermelho
+                display_arrow = "↑"
+        else: # Para eventos positivos (Melhora se Casa > Fora)
+            if casa_val > fora_val:
+                indicator_text = "Casa Melhor (↑)"
+                display_color = "#28a745" # Verde
+                display_arrow = "↑"
+            elif casa_val < fora_val:
+                indicator_text = "Fora Melhor (↓)"
+                display_color = "#dc3545" # Vermelho
+                display_arrow = "↓"
+
+        comparison_list.append({
+            'Event_Name': event_name, 
+            'Casa': casa_val,
+            'Fora': fora_val,
+            'Comparação': indicator_text,
+            'Arrow_UI': display_arrow,
+            'Color_UI': display_color
+        })
+    return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
+
+
+# --- Geração de PDF (Genérica para Individual/Coletiva) ---
 class PDF(FPDF):
     def header(self):
         self.set_font('Arial', 'B', 12)
@@ -164,9 +211,18 @@ class PDF(FPDF):
         self.cell(0, 6, title, 0, 1, 'L')
         self.ln(2)
     def add_table(self, df_to_print):
-        col_widths = [80, 30, 30, 30] 
+        # Adapta larguras de coluna para o PDF, com base nas colunas recebidas
+        # Assegura que o PDF pode lidar com colunas de Individual ou Coletivo
+        headers = df_to_print.columns.tolist()
+        
+        # Define larguras padrão ou ajusta se necessário.
+        if 'Média' in headers: # É um relatório individual
+            col_widths = [80, 30, 30, 30] 
+        else: # É um relatório coletivo (Casa, Fora, Comparação)
+            col_widths = [60, 30, 30, 60]
+
         self.set_font('Arial', 'B', 9)
-        for i, header in enumerate(df_to_print.columns.tolist()):
+        for i, header in enumerate(headers):
             self.cell(col_widths[i], 7, header, 1, 0, 'C')
         self.ln()
         self.set_font('Arial', '', 8)
@@ -176,7 +232,7 @@ class PDF(FPDF):
             self.ln()
         self.ln(5)
 
-def create_pdf_report_generic(entity_type, entity_name, game_name, performance_data):
+def create_pdf_report_generic(entity_type, entity_name, game_name, performance_data, is_collective=False):
     pdf = PDF()
     pdf.add_page()
     pdf.set_font('Arial', 'B', 11)
@@ -184,9 +240,13 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.cell(0, 10, f'Jogo: {game_name}', 0, 1, 'L')
     pdf.ln(5)
 
-    df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
-    df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
-    df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
+    if is_collective:
+        df_for_pdf = performance_data[['Event_Name', 'Casa', 'Fora', 'Comparação']].copy()
+        df_for_pdf.rename(columns={'Event_Name': 'Evento'}, inplace=True)
+    else: # Individual
+        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
+        df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
+        df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
     
     pdf.chapter_title('Resumo da Performance por Evento:')
     pdf.add_table(df_for_pdf)
@@ -218,9 +278,9 @@ with tab_individual:
         selected_player = st.selectbox('Jogador:', all_players)
 
     if selected_individual_game and selected_player:
-        performance_data_individual = get_performance_data(
+        performance_data_individual = get_performance_data_individual(
             selected_player, selected_individual_game, df_individual_grouped, 
-            individual_overall_averages, EVENTO_NATUREZA_CONFIG_INDIVIDUAL, 'Player'
+            individual_overall_averages
         )
 
         st.subheader(f'Performance de {selected_player} no jogo: {selected_individual_game}')
@@ -311,7 +371,7 @@ with tab_individual:
         st.write('---') 
 
         pdf_bytes_individual = create_pdf_report_generic(
-            "Jogador", selected_player, selected_individual_game, performance_data_individual
+            "Jogador", selected_player, selected_individual_game, performance_data_individual, is_collective=False
         )
         st.download_button(
             label="📄 Exportar Relatório Individual como PDF",
@@ -329,63 +389,39 @@ with tab_coletiva:
 
     # Carrega dados coletivos
     df_collective = load_collective_data(GITHUB_COLLECTIVE_CSV_URL)
-    df_collective_grouped = df_collective.groupby(['Jogo', 'Team', 'Evento descrição'])['Count'].sum().reset_index()
-    collective_overall_averages = df_collective_grouped.groupby(['Team', 'Evento descrição'])['Count'].mean().reset_index()
-    collective_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
+    
+    # NÃO HÁ GROUPBY POR TEAM OU MÉDIA AQUI - A ESTRUTURA É DIFERENTE
+    # Apenas pegamos os jogos únicos para o filtro
+    all_collective_games = sorted(df_collective['Jogo'].unique().tolist())
+    
+    # Filtro coletivo (apenas por Jogo)
+    selected_collective_game = st.selectbox('Jogo Atual (Coletivo):', all_collective_games)
 
-    all_collective_games = sorted(df_collective_grouped['Jogo'].unique().tolist())
-    all_teams = sorted(df_collective_grouped['Team'].unique().tolist())
-
-    # Filtros coletivos
-    col_col_game, col_col_team = st.columns(2)
-    with col_col_game:
-        selected_collective_game = st.selectbox('Jogo Atual (Coletivo):', all_collective_games)
-    with col_col_team:
-        selected_team = st.selectbox('Equipe:', all_teams)
-
-    if selected_collective_game and selected_team:
-        performance_data_collective = get_performance_data(
-            selected_team, selected_collective_game, df_collective_grouped, 
-            collective_overall_averages, EVENTO_NATUREZA_CONFIG_COLETIVA, 'Team'
+    if selected_collective_game:
+        # Chama a nova função para dados coletivos
+        performance_data_collective = get_collective_performance_data(
+            selected_collective_game, df_collective
         )
 
-        st.subheader(f'Performance de {selected_team} no jogo: {selected_collective_game}')
+        st.subheader(f'Performance no jogo: {selected_collective_game}')
         st.write('---')
 
-        st.markdown('**Resumo Detalhado da Performance por Evento Coletivo:**')
+        st.markdown('**Comparativo Casa vs Fora por Evento:**')
         
+        # Cores já definidas acima
         color_green = "#28a745"
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
-        for index, row in performance_data_collective.iterrows():
-            col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
+        for index, row in performance_data_collective.iterrows():
+            # A linha principal terá 4 colunas: Nome do Evento | Valor Casa | Valor Fora | Indicador
+            col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
+            
             with col_name:
                 st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Event_Name']}</h5>", unsafe_allow_html=True)
 
-            current_val = int(row['Atual'])
-            avg_val = f"{row['Média']:.2f}"
-            change_text_ui = row['Mudança_UI']
-
-            display_arrow = ""
-            display_color = color_gray
-            indicator_text = "Mantém"
-
-            if 'Melhora (↑)' in change_text_ui:
-                display_arrow = "▲"
-                display_color = color_green
-                indicator_text = "Melhora"
-            elif 'Piora (↓)' in change_text_ui:
-                display_arrow = "▼"
-                display_color = color_red
-                indicator_text = "Piora"
-            else:
-                display_arrow = "—"
-                display_color = color_gray
-                indicator_text = "Mantém"
-
-            with col_value_card:
+            with col_casa_val:
                 st.markdown(
                     f"""
                     <div style="
@@ -395,39 +431,63 @@ with tab_coletiva:
                         background-color: #ffffff;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
                         height: 75px;
-                        display: flex; flex-direction: column; justify-content: center;
+                        display: flex; flex-direction: column; justify-content: center; align-items: center;
                         margin-bottom: 10px;
                     ">
                         <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">
-                            {current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small>
+                            {int(row['Casa'])}
                         </p>
-                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">
-                            Média: {avg_val}
+                        <p style="font-size: 0.7em; color: #777; margin-bottom: 0px; margin-top: 0;">
+                            (Casa)
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            
+            with col_fora_val:
+                st.markdown(
+                    f"""
+                    <div style="
+                        border: 1px solid #e6e6e6;
+                        border-radius: 8px;
+                        padding: 8px;
+                        background-color: #ffffff;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+                        height: 75px;
+                        display: flex; flex-direction: column; justify-content: center; align-items: center;
+                        margin-bottom: 10px;
+                    ">
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">
+                            {int(row['Fora'])}
+                        </p>
+                        <p style="font-size: 0.7em; color: #777; margin-bottom: 0px; margin-top: 0;">
+                            (Fora)
                         </p>
                     </div>
                     """,
                     unsafe_allow_html=True
                 )
 
-            with col_indicator_card:
+            with col_indicator_collective:
                 st.markdown(
                     f"""
                     <div style="
-                        border: 1px solid {display_color};
+                        border: 1px solid {row['Color_UI']};
                         border-radius: 8px;
                         padding: 5px;
-                        background-color: {display_color}20;
+                        background-color: {row['Color_UI']}20;
                         box-shadow: 0 2px 4px rgba(0,0,0,0.03);
                         height: 75px;
                         display: flex; flex-direction: column; justify-content: center; align-items: center;
                         text-align: center;
                         margin-bottom: 10px;
                     ">
-                        <p style="font-size: 1.5em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">
-                            {display_arrow}
+                        <p style="font-size: 1.5em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">
+                            {row['Arrow_UI']}
                         </p>
-                        <p style="font-size: 0.7em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">
-                            {indicator_text}
+                        <p style="font-size: 0.7em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">
+                            {row['Comparação'].split(' ')[0]}
                         </p>
                     </div>
                     """,
@@ -437,14 +497,14 @@ with tab_coletiva:
         st.write('---') 
 
         pdf_bytes_collective = create_pdf_report_generic(
-            "Equipe", selected_team, selected_collective_game, performance_data_collective
+            "Jogo", selected_collective_game, "", performance_data_collective, is_collective=True
         )
         st.download_button(
             label="📄 Exportar Relatório Coletivo como PDF",
             data=pdf_bytes_collective,
-            file_name=f"Relatorio_Performance_Coletiva_{selected_team.replace(' ', '_').replace(':', '').replace('/', '_')}_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf",
+            file_name=f"Relatorio_Performance_Coletiva_{selected_collective_game.replace(' ', '_').replace(':', '').replace('/', '_')}.pdf",
             mime="application/pdf"
         )
 
     else:
-        st.info('Selecione um jogo e uma equipe para ver a performance coletiva.')
+        st.info('Selecione um jogo para ver a performance coletiva.')
