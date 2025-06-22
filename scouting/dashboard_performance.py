@@ -40,19 +40,19 @@ GITHUB_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/s
 def load_data(url):
     df = pd.read_csv(url)
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+    # Remover espaços em branco dos nomes dos eventos na coluna 'Evento descrição'
+    df['Evento descrição'] = df['Evento descrição'].str.strip()
     return df
 
 df = load_data(GITHUB_CSV_URL)
 
-# --- Pré-processamento de Dados (agregado apenas por Jogo, Player, Evento descrição) ---
-# CORRIGIDO: Usando 'Evento descrição'
+# --- Pré-processamento de Dados (agregado por Jogo, Player, Evento descrição) ---
 df_grouped = df.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
 
 all_games = sorted(df_grouped['Jogo'].unique().tolist())
 all_players = sorted(df_grouped['Player'].unique().tolist())
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
-# Os nomes das chaves devem ser EXATAMENTE como aparecem na coluna 'Evento descrição'
 EVENTO_NATUREZA_CONFIG = {
     'Passe Certo Curto': False,
     'Passe Certo Longo': False,
@@ -66,14 +66,25 @@ EVENTO_NATUREZA_CONFIG = {
     'Drible Errado': True,
     'Drible': False, 
     'Roubada de Bola': False,
-    'Perda da Bola': True,
+    'Perda de Posse': True, # Nome exato da planilha
     'Falta Cometida': True,
-    'Recepcao Errada': True, 
     'Gol': False, 
+    'Defesa Recuperação': False, 
+    'Finalização Fora do Alvo': True, 
+    'Defesa Corte': False, 
+    'Defesa Desarme': False, 
+    'Cruzamento Errado': True, 
+    'Defesa Drible Sofrido': True, 
+    'Duelo Aéreo Perdido': True, 
+    'Finalização No Alvo': False, 
+    'Defesa Interceptação': False, 
+    'Duelo Aéreo Ganho': False, 
+    'Defesa Goleiro': False, 
+    'Passe Chave': False, 
 }
 
+
 # --- Pré-cálculo das Médias Globais por Evento descrição e Jogador ---
-# CORRIGIDO: Usando 'Evento descrição'
 player_overall_averages = df_grouped.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
 player_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
 
@@ -82,11 +93,9 @@ player_overall_averages.rename(columns={'Count': 'Média'}, inplace=True)
 def get_performance_data_by_event(current_game, player_name, df_grouped_data, player_avg_event_data):
     comparison_list = []
     
-    epsilon = 0.01 
+    epsilon = 0.01 # Tolerância para comparação de ponto flutuante
 
-    # Iterar sobre cada evento definido em EVENTO_NATUREZA_CONFIG (que são os nomes exatos de 'Evento descrição')
     for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG.items():
-        # CORRIGIDO: Usando 'Evento descrição'
         current_val_series = df_grouped_data[
             (df_grouped_data['Jogo'] == current_game) &
             (df_grouped_data['Player'] == player_name) &
@@ -94,7 +103,6 @@ def get_performance_data_by_event(current_game, player_name, df_grouped_data, pl
         ]['Count']
         current_val = current_val_series.iloc[0] if not current_val_series.empty else 0
 
-        # CORRIGIDO: Usando 'Evento descrição'
         avg_val_series = player_avg_event_data[
             (player_avg_event_data['Player'] == player_name) &
             (player_avg_event_data['Evento descrição'] == event_name) 
@@ -104,26 +112,27 @@ def get_performance_data_by_event(current_game, player_name, df_grouped_data, pl
         indicator_text_raw = "Mantém (—)" 
         indicator_text_pdf = "Mantém (-)" 
 
+        # Lógica de comparação com a nova tolerância para igualdade
         if abs(current_val - avg_val) < epsilon: 
             indicator_text_raw = "Mantém (—)"
             indicator_text_pdf = "Mantém (-)"
-        elif is_negative_event:
+        elif is_negative_event: # Se o evento é "ruim"
             if current_val < avg_val:
                 indicator_text_raw = "Melhora (↓)" 
                 indicator_text_pdf = "Melhora (DOWN)"
-            else: 
+            else: # current_val > avg_val
                 indicator_text_raw = "Piora (↑)" 
                 indicator_text_pdf = "Piora (UP)"
-        else:
+        else: # Se o evento é "bom"
             if current_val > avg_val:
                 indicator_text_raw = "Melhora (↑)"
                 indicator_text_pdf = "Melhora (UP)"
-            else: 
+            else: # current_val < avg_val
                 indicator_text_raw = "Piora (↓)"
                 indicator_text_pdf = "Piora (DOWN)"
 
         comparison_list.append({
-            'Event_Name': event_name, # Event_Name é o valor exato da coluna 'Evento descrição'
+            'Event_Name': event_name, 
             'Atual': current_val,
             'Média': avg_val,
             'Mudança_UI': indicator_text_raw,
@@ -168,7 +177,6 @@ def create_pdf_report(player_name, game_name, performance_data_event):
     pdf.ln(5)
 
     df_for_pdf = performance_data_event[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
-    # Renomear 'Event_Name' para 'Evento' no PDF
     df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
     df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
     
@@ -204,7 +212,6 @@ if selected_game and selected_player:
         col_name, col_value_card, col_indicator_card = st.columns([0.4, 0.4, 0.2])
 
         with col_name:
-            # Usar 'Event_Name' (que é o nome exato da coluna 'Evento descrição')
             st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{row['Event_Name']}</h5>", unsafe_allow_html=True)
 
         current_val = int(row['Atual'])
