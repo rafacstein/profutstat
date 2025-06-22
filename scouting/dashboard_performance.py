@@ -95,8 +95,8 @@ def get_performance_data_by_category(current_game, player_name, df_categorized_d
 
     comparison_list = []
     
-    # Define uma pequena tolerância para comparações de ponto flutuante
-    epsilon = 1e-9 
+    # Ajuste do epsilon para uma tolerância mais "visível" ou "prática"
+    epsilon = 0.01 # Se a diferença for menor que 0.01, considere igual
 
     for category_name, config in METRIC_CATEGORIES_CONFIG.items():
         current_val = current_game_category_data[category_name].iloc[0] if category_name in current_game_category_data.columns and not current_game_category_data.empty else 0
@@ -105,22 +105,22 @@ def get_performance_data_by_category(current_game, player_name, df_categorized_d
         indicator_text_raw = "Mantém (—)" 
         indicator_text_pdf = "Mantém (-)" 
 
-        # Lógica de comparação com tolerância para igualdade
-        if abs(current_val - avg_val) < epsilon: # Se são aproximadamente iguais
+        # Lógica de comparação com a nova tolerância para igualdade
+        if abs(current_val - avg_val) < epsilon: 
             indicator_text_raw = "Mantém (—)"
             indicator_text_pdf = "Mantém (-)"
         elif config['is_negative']: # Se a categoria é de eventos "ruins"
             if current_val < avg_val:
-                indicator_text_raw = "Melhora (↓)" # Menos eventos ruins é melhor
+                indicator_text_raw = "Melhora (↓)" 
                 indicator_text_pdf = "Melhora (DOWN)"
-            else: # current_val > avg_val (pois igualdade já foi tratada)
-                indicator_text_raw = "Piora (↑)" # Mais eventos ruins é pior
+            else: # current_val > avg_val
+                indicator_text_raw = "Piora (↑)" 
                 indicator_text_pdf = "Piora (UP)"
         else: # Se a categoria é de eventos "bons"
             if current_val > avg_val:
                 indicator_text_raw = "Melhora (↑)"
                 indicator_text_pdf = "Melhora (UP)"
-            else: # current_val < avg_val (pois igualdade já foi tratada)
+            else: # current_val < avg_val
                 indicator_text_raw = "Piora (↓)"
                 indicator_text_pdf = "Piora (DOWN)"
 
