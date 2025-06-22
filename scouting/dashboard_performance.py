@@ -89,7 +89,7 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e inspecionado)
+# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e INCLUINDO NOVOS)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
     'Posse de bola': False, 
     'Gols': False, 
@@ -272,22 +272,21 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         avg_val_casa = avg_val_casa_series.iloc[0] if not avg_val_casa_series.empty else 0
 
 
-        indicator_text = "Mantém" # Texto para o card
-        display_color = "#6c757d" # Cor cinza para "Mantém"
-        display_arrow = "" # REMOVIDO AQUI: Seta para a análise coletiva
+        indicator_text = "Mantém" 
+        display_color = "#6c757d" 
+        display_arrow = "" # Seta removida para análise coletiva
 
-        # Lógica de comparação: Valor atual da Casa vs. Média da Casa
         if abs(current_val_casa - avg_val_casa) < epsilon: 
             indicator_text = "Mantém"
             display_color = "#6c757d" 
-        elif is_negative_event: # Para eventos negativos (Mais é Pior)
+        elif is_negative_event: 
             if current_val_casa < avg_val_casa:
-                indicator_text = "Melhor" # Antes "Casa Melhor", agora "Melhor"
+                indicator_text = "Melhor"
                 display_color = "#28a745" 
-            else: # current_val_casa > avg_val_casa
-                indicator_text = "Pior" # Antes "Fora Melhor", agora "Pior"
+            else: 
+                indicator_text = "Pior"
                 display_color = "#dc3545" 
-        else: # Para eventos positivos (Mais é Melhor)
+        else: 
             if current_val_casa > avg_val_casa:
                 indicator_text = "Melhor"
                 display_color = "#28a745" 
@@ -299,9 +298,9 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
             'Event_Name': event_name, 
             'Atual': current_val_casa, 
             'Média': avg_val_casa, 
-            'Comparação': indicator_text, # Texto de comparação
-            'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
-            'Color_UI': display_color # Cor para o card
+            'Comparação': indicator_text, 
+            'Arrow_UI': display_arrow, 
+            'Color_UI': display_color
         })
     return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
 
@@ -335,10 +334,8 @@ class PDF(FPDF):
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
             for i, item in enumerate(row):
-                if headers[i] == 'Comparação': # Coletivo (agora 'Melhor', 'Pior', 'Equilíbrio')
-                    item_str = str(item) # Não precisa de replace de setas ou Casa/Fora
-                elif headers[i] == 'Mudança_PDF': # Individual
-                    item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
+                if headers[i] == 'Comparação':
+                    item_str = str(item).replace('Casa Melhor', 'Casa').replace('Fora Melhor', 'Fora').replace('Equilíbrio', '=')
                 else:
                     item_str = str(item)
                 self.cell(col_widths[i], 6, item_str, 1, 0, 'C')
@@ -354,7 +351,7 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Comparação']].copy() # Colunas para coletivo
+        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Comparação']].copy()
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Comparação': 'Status'}, inplace=True)
         df_for_pdf['Média'] = df_for_pdf['Média'].apply(lambda x: f"{x:.2f}")
     else: # Individual
