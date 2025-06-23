@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
-from itertools import product
+from itertools import product 
 
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
@@ -126,6 +126,8 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
     
+    # Retorna o df_grouped original e as médias corrigidas
+    df_grouped_per_event_per_game = df_raw_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
 
@@ -133,6 +135,8 @@ def preprocess_individual_data_for_averages(df_raw_individual):
 @st.cache_data
 def preprocess_collective_data_for_averages(df_collective_raw):
     df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
+    
+    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
     collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
     collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
     
@@ -254,8 +258,8 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, 
-            'Média': avg_val_casa, 
+            'Atual': current_val_casa, # Valor da Casa
+            'Média': avg_val_casa, # Média da Casa
             'Fora': fora_val, # Valor do time de Fora
             'Comparação': indicator_text, # Status de comparação Casa vs Média
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
@@ -263,12 +267,12 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         })
     # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora') existam
     df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
-    if 'Atual' not in df_result.columns: df_result['Atual'] = 0
-    if 'Média' not in df_result.columns: df_result['Média'] = 0.0
-    if 'Fora' not in df_result.columns: df_result['Fora'] = 0
-    if 'Comparação' not in df_result.columns: df_result['Comparação'] = 'Mantém'
-    if 'Arrow_UI' not in df_result.columns: df_result['Arrow_UI'] = ''
-    if 'Color_UI' not in df_result.columns: df_result['Color_UI'] = "#6c757d" # Default gray
+    
+    # Adiciona colunas se estiverem faltando (pode ocorrer se comparison_list for vazia ou ter eventos faltando)
+    required_cols = ['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação', 'Arrow_UI', 'Color_UI']
+    for col in required_cols:
+        if col not in df_result.columns:
+            df_result[col] = 0 if col in ['Atual', 'Média', 'Fora'] else '' # Default numerical or string
     
     return df_result
 
@@ -290,7 +294,6 @@ class PDF(FPDF):
     def add_table(self, df_to_print):
         headers = df_to_print.columns.tolist()
         
-        # Ajusta larguras de coluna para o PDF
         if 'Média' in headers and 'Atual' in headers and 'Fora' in headers: # Coletivo (Atual, Média, Fora, Status)
             col_widths = [60, 30, 30, 30, 40] # Evento, Atual(Casa), Média(Casa), Fora(Visitante), Status
         elif 'Média' in headers and 'Atual' in headers: # Individual (Atual, Média, Mudança)
@@ -308,12 +311,13 @@ class PDF(FPDF):
                 item = row[header] 
                 item_str = str(item)
 
-                if header == 'Comparação' or header == 'Status': 
+                if header == 'Comparação' or header == 'Status': # Coletivo (Status)
                     item_str = str(item) 
-                elif header == 'Mudança': 
+                elif header == 'Mudança': # Individual
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
-                elif header in ['Atual', 'Média', 'Casa', 'Fora']: 
+                elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
+                        # Para '% de Posse de bola' formatar como float com 2 casas
                         # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
                         if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
@@ -339,7 +343,7 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação']].copy() 
+        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação']].copy() # Colunas para coletivo
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Fora': 'Fora (Visitante)', 'Comparação': 'Status'}, inplace=True)
     else: # Individual
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
@@ -359,6 +363,7 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
+    # Título principal (h1 com estilo, sem st.title() duplicado)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
@@ -372,12 +377,15 @@ tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísti
 with tab_individual:
     st.header("Análise de Performance Individual")
 
+    # Carrega dados individuais (e faz o pré-processamento para médias corrigidas)
     df_individual_raw = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
     df_grouped_per_event_per_game_individual, player_overall_averages_corrected = preprocess_individual_data_for_averages(df_individual_raw)
 
+    # Usamos os dados do preprocessamento para popular os selectboxes
     all_individual_games = sorted(df_grouped_per_event_per_game_individual['Jogo'].unique().tolist())
     all_players = sorted(df_grouped_per_event_per_game_individual['Player'].unique().tolist())
 
+    # Filtros individuais
     col_ind_game, col_ind_player = st.columns(2)
     with col_ind_game:
         selected_individual_game = st.selectbox('Jogo Atual (Individual):', all_individual_games)
