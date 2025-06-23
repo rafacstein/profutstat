@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 from io import BytesIO
-from itertools import product # Importado para ajudar na criação de combinações
+from itertools import product
 
 # --- Configuração da Página ---
 st.set_page_config(layout="centered", page_title="Dashboard de Performance")
@@ -30,6 +30,9 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+
+st.title('📊 Dashboard de Análise de Performance')
 
 # --- URLs dos Arquivos CSV no GitHub (RAW) ---
 GITHUB_INDIVIDUAL_CSV_URL = 'https://raw.githubusercontent.com/rafacstein/profutstat/main/scouting/Monitoramento%20S%C3%A3o%20Bento%20U13%20-%20CONSOLIDADO%20INDIVIDUAL.csv'
@@ -59,85 +62,36 @@ def load_collective_data(url):
     return df
 
 # --- Definição da Natureza de Cada Evento (Positiva/Negativa) ---
-# Para Estatísticas Individuais (baseado no CSV individual e inspecionado)
 EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
-    'Passe Certo Curto': False,
-    'Passe Certo Longo': False,
-    'Passe Errado Curto': True,
-    'Passe Errado Longo': True,
-    'Passe Errado': True, 
-    'Falta Sofrida': False,
-    'Drible Certo': False,
-    'Drible Errado': True,
-    'Drible': False, 
-    'Roubada de Bola': False,
-    'Perda de Posse': True, 
-    'Falta Cometida': True,
-    'Gol': False, 
-    'Defesa Recuperação': False, 
-    'Finalização Fora do Alvo': True, 
-    'Defesa Corte': False, 
-    'Defesa Desarme': False, 
-    'Cruzamento Errado': True, 
-    'Defesa Drible Sofrido': True, 
-    'Duelo Aéreo Perdido': True, 
-    'Finalização No Alvo': False, 
-    'Defesa Interceptação': False, 
-    'Duelo Aéreo Ganho': False, 
-    'Defesa Goleiro': False, 
-    'Passe Chave': False, 
+    'Passe Certo Curto': False, 'Passe Certo Longo': False, 'Passe Errado Curto': True, 
+    'Passe Errado Longo': True, 'Passe Errado': True, 'Falta Sofrida': False,
+    'Drible Certo': False, 'Drible Errado': True, 'Drible': False, 
+    'Roubada de Bola': False, 'Perda de Posse': True, 'Falta Cometida': True,
+    'Gol': False, 'Defesa Recuperação': False, 'Finalização Fora do Alvo': True, 
+    'Defesa Corte': False, 'Defesa Desarme': False, 'Cruzamento Errado': True, 
+    'Defesa Drible Sofrido': True, 'Duelo Aéreo Perdido': True, 
+    'Finalização No Alvo': False, 'Defesa Interceptação': False, 
+    'Duelo Aéreo Ganho': False, 'Defesa Goleiro': False, 'Passe Chave': False, 
 }
 
-# Para Estatísticas Coletivas (Baseado EXATAMENTE nos eventos do CSV coletivo e INCLUINDO NOVOS)
 EVENTO_NATUREZA_CONFIG_COLETIVA = {
-    'Posse de bola': False, 
-    'Gols': False, 
-    'Chutes no gol': False, 
-    'Chutes pra fora': True, 
-    'Escanteios': False, 
-    'Faltas': True, 
-    'Cartões amarelos': True, 
-    'Cartões vermelhos': True, 
-    'Impedimentos': True, 
-    'Desarmes': False,         
-    'Interceptações': False,   
-    'Passes Certos': False,    
-    'Passes Errados': True,    
-    '% de Posse de bola': False, # NOVO EVENTO: Porcentagem de Posse de Bola
+    'Posse de bola': False, 'Gols': False, 'Chutes no gol': False, 
+    'Chutes pra fora': True, 'Escanteios': False, 'Faltas': True, 
+    'Cartões amarelos': True, 'Cartões vermelhos': True, 'Impedimentos': True, 
+    'Desarmes': False, 'Interceptações': False, 'Passes Certos': False,    
+    'Passes Errados': True, '% de Posse de bola': False, 
 }
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
 INDIVIDUAL_EVENT_DISPLAY_ORDER = [
-    # Finalizações
-    'Gol',
-    'Finalização No Alvo',
-    'Finalização Fora do Alvo',
-    # Passes
-    'Passe Certo Curto',
-    'Passe Certo Longo',
-    'Passe Errado',
-    'Passe Errado Curto',
-    'Passe Errado Longo',
-    'Passe Chave',
-    'Cruzamento Errado',
-    # Dribles
-    'Drible Certo',
-    'Drible Errado',
-    'Drible',
-    # Ações de Defesa (exceto Duelos Aéreos)
-    'Defesa Goleiro',
-    'Defesa Recuperação',
-    'Defesa Corte',
-    'Defesa Desarme',
-    'Defesa Interceptação',
-    'Roubada de Bola',
-    'Defesa Drible Sofrido', 
-    'Perda de Posse',
-    'Falta Sofrida',
-    'Falta Cometida',
-    # Duelos Aéreos (AGORA NO FINAL DA LISTA)
-    'Duelo Aéreo Ganho',
-    'Duelo Aéreo Perdido',
+    'Gol', 'Finalização No Alvo', 'Finalização Fora do Alvo',
+    'Passe Certo Curto', 'Passe Certo Longo', 'Passe Errado', 'Passe Errado Curto', 
+    'Passe Errado Longo', 'Passe Chave', 'Cruzamento Errado',
+    'Drible Certo', 'Drible Errado', 'Drible',
+    'Defesa Goleiro', 'Defesa Recuperação', 'Defesa Corte', 'Defesa Desarme', 
+    'Defesa Interceptação', 'Roubada de Bola', 'Defesa Drible Sofrido', 
+    'Perda de Posse', 'Falta Sofrida', 'Falta Cometida',
+    'Duelo Aéreo Ganho', 'Duelo Aéreo Perdido',
 ]
 
 # --- Função de Pré-processamento para Médias Individuais ---
@@ -172,8 +126,6 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
     
-    # Retorna o df_grouped original e as médias corrigidas
-    df_grouped_per_event_per_game = df_raw_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
 
@@ -181,8 +133,6 @@ def preprocess_individual_data_for_averages(df_raw_individual):
 @st.cache_data
 def preprocess_collective_data_for_averages(df_collective_raw):
     df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
-    
-    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
     collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
     collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
     
@@ -251,6 +201,15 @@ def get_performance_data_individual(player_name, game_name, df_grouped_data, ove
     return df_performance
 
 
+# --- Função para Obter Nome de Exibição de Eventos (reutilizada para Individual e Coletivo) ---
+def get_display_event_name(original_event_name):
+    if original_event_name == 'Defesa Goleiro':
+        return original_event_name
+    elif original_event_name.startswith('Defesa '):
+        return original_event_name.replace('Defesa ', '')
+    return original_event_name
+
+
 # --- Nova Função de Cálculo de Performance Coletiva (Compara com a Média da Coluna Casa) ---
 def get_collective_performance_data(game_name, df_collective_raw_data, collective_overall_averages):
     game_data = df_collective_raw_data[df_collective_raw_data['Jogo'] == game_name]
@@ -295,14 +254,23 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
         
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, # Valor da Casa
-            'Média': avg_val_casa, # Média da Casa
+            'Atual': current_val_casa, 
+            'Média': avg_val_casa, 
             'Fora': fora_val, # Valor do time de Fora
             'Comparação': indicator_text, # Status de comparação Casa vs Média
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
             'Color_UI': display_color
         })
-    return pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
+    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora') existam
+    df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
+    if 'Atual' not in df_result.columns: df_result['Atual'] = 0
+    if 'Média' not in df_result.columns: df_result['Média'] = 0.0
+    if 'Fora' not in df_result.columns: df_result['Fora'] = 0
+    if 'Comparação' not in df_result.columns: df_result['Comparação'] = 'Mantém'
+    if 'Arrow_UI' not in df_result.columns: df_result['Arrow_UI'] = ''
+    if 'Color_UI' not in df_result.columns: df_result['Color_UI'] = "#6c757d" # Default gray
+    
+    return df_result
 
 
 # --- Geração de PDF (Genérica para Individual/Coletiva) ---
@@ -336,19 +304,20 @@ class PDF(FPDF):
         self.ln()
         self.set_font('Arial', '', 8)
         for index, row in df_to_print.iterrows():
-            for i, item in enumerate(row):
-                # Formatação para string e tratamento para PDF
-                if headers[i] == 'Comparação': # Coletivo (Status)
+            for i, header in enumerate(headers): 
+                item = row[header] 
+                item_str = str(item)
+
+                if header == 'Comparação' or header == 'Status': 
                     item_str = str(item) 
-                elif headers[i] == 'Mudança': # Individual
+                elif header == 'Mudança': 
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
-                elif headers[i] in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
+                elif header in ['Atual', 'Média', 'Casa', 'Fora']: 
                     try:
-                        # Para '% de Posse de bola' formatar como float com 2 casas
                         # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
-                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola': 
+                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
-                        elif headers[i] == 'Média':
+                        elif header == 'Média':
                             item_str = f"{float(item):.2f}"
                         else: 
                             item_str = str(int(float(item))) 
@@ -370,10 +339,8 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        # Colunas para o PDF coletivo, incluindo 'Fora'
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação']].copy() 
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Fora': 'Fora (Visitante)', 'Comparação': 'Status'}, inplace=True)
-        # Não precisa aplicar .apply(lambda x: f"{x:.2f}") aqui, já feito no add_table
     else: # Individual
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
@@ -392,7 +359,6 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    # Título principal (h1 com estilo, sem st.title() duplicado)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
@@ -406,15 +372,12 @@ tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísti
 with tab_individual:
     st.header("Análise de Performance Individual")
 
-    # Carrega dados individuais (e faz o pré-processamento para médias corrigidas)
     df_individual_raw = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
     df_grouped_per_event_per_game_individual, player_overall_averages_corrected = preprocess_individual_data_for_averages(df_individual_raw)
 
-    # Usamos os dados do preprocessamento para popular os selectboxes
     all_individual_games = sorted(df_grouped_per_event_per_game_individual['Jogo'].unique().tolist())
     all_players = sorted(df_grouped_per_event_per_game_individual['Player'].unique().tolist())
 
-    # Filtros individuais
     col_ind_game, col_ind_player = st.columns(2)
     with col_ind_game:
         selected_individual_game = st.selectbox('Jogo Atual (Individual):', all_individual_games)
@@ -424,7 +387,7 @@ with tab_individual:
     if selected_individual_game and selected_player:
         performance_data_individual = get_performance_data_individual(
             selected_player, selected_individual_game, 
-            df_grouped_per_event_per_game_individual, player_overall_averages_corrected # Passa os DFs processados
+            df_grouped_per_event_per_game_individual, player_overall_averages_corrected 
         )
 
         st.subheader(f'Performance de {selected_player} no jogo: {selected_individual_game}')
@@ -474,42 +437,19 @@ with tab_individual:
 
             with col_value_card:
                 st.markdown(
-                    f"""
-                    <div style="
-                        border: 1px solid #e6e6e6;
-                        border-radius: 8px;
-                        padding: 8px;
-                        background-color: #ffffff;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                        height: 75px;
-                        display: flex; flex-direction: column; justify-content: center;
-                        margin-bottom: 10px;
-                    ">
+                    f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px;">
                         <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
                         <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {avg_val}</p>
-                    </div>
-                    """,
+                    </div>""",
                     unsafe_allow_html=True
                 )
 
             with col_indicator_card:
                 st.markdown(
-                    f"""
-                    <div style="
-                        border: 1px solid {display_color};
-                        border-radius: 8px;
-                        padding: 5px;
-                        background-color: {display_color}20;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                        height: 75px;
-                        display: flex; flex-direction: column; justify-content: center; align-items: center;
-                        text-align: center;
-                        margin-bottom: 10px;
-                    ">
+                    f"""<div style="border: 1px solid {display_color}; border-radius: 8px; padding: 5px; background-color: {display_color}20; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 10px;">
                         <p style="font-size: 1.5em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">{display_arrow}</p>
                         <p style="font-size: 0.7em; font-weight: bold; color: {display_color}; margin-bottom: 0; margin-top: 0;">{indicator_text}</p>
-                    </div>
-                    """,
+                    </div>""",
                     unsafe_allow_html=True
                 )
 
@@ -532,7 +472,6 @@ with tab_individual:
 with tab_coletiva:
     st.header("Análise de Performance Coletiva")
 
-    # Carrega dados coletivos e faz o pré-processamento para médias corrigidas da coluna 'Casa'
     df_collective_raw = load_collective_data(GITHUB_COLLECTIVE_CSV_URL) 
     collective_overall_averages_corrected = preprocess_collective_data_for_averages(df_collective_raw)
     
@@ -545,7 +484,6 @@ with tab_coletiva:
             selected_collective_game, df_collective_raw, collective_overall_averages_corrected
         )
 
-        # O subheader agora é fixo para "EC São Bento" como time da casa
         st.subheader(f'Performance do EC São Bento no jogo: {selected_collective_game}')
         st.write('---')
 
@@ -555,8 +493,14 @@ with tab_coletiva:
         color_red = "#dc3545"
         color_gray = "#6c757d"
 
-        # Reutiliza a função get_display_event_name
-        
+        def get_display_event_name(original_event_name):
+            if original_event_name == 'Defesa Goleiro':
+                return original_event_name
+            elif original_event_name.startswith('Defesa '):
+                return original_event_name.replace('Defesa ', '')
+            return original_event_name
+
+
         for index, row in performance_data_collective.iterrows():
             # Layout com 4 colunas para o coletivo: Nome do Evento | Valor Casa | Valor Fora | Indicador (da Casa vs Média)
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
@@ -566,62 +510,28 @@ with tab_coletiva:
 
             with col_casa_val:
                 st.markdown(
-                    f"""
-                    <div style="
-                        border: 1px solid #e6e6e6;
-                        border-radius: 8px;
-                        padding: 8px;
-                        background-color: #ffffff;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                        height: 75px;
-                        display: flex; flex-direction: column; justify-content: center;
-                        margin-bottom: 10px;
-                    ">
+                    f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px;">
                         <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
                         <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {row['Média']:.2f} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
-                    </div>
-                    """,
+                    </div>""",
                     unsafe_allow_html=True
                 )
             
             with col_fora_val: # Adicionado de volta o card do time de fora
                 st.markdown(
-                    f"""
-                    <div style="
-                        border: 1px solid #e6e6e6;
-                        border-radius: 8px;
-                        padding: 8px;
-                        background-color: #ffffff;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                        height: 75px;
-                        display: flex; flex-direction: column; justify-content: center; align-items: center;
-                        margin-bottom: 10px;
-                    ">
+                    f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 10px;">
                         <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Fora'])}</p>
                         <p style="font-size: 0.7em; color: #777; margin-bottom: 0px; margin-top: 0;">(Fora)</p>
-                    </div>
-                    """,
+                    </div>""",
                     unsafe_allow_html=True
                 )
 
             with col_indicator_collective:
                 st.markdown(
-                    f"""
-                    <div style="
-                        border: 1px solid {row['Color_UI']};
-                        border-radius: 8px;
-                        padding: 5px;
-                        background-color: {row['Color_UI']}20;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
-                        height: 75px;
-                        display: flex; flex-direction: column; justify-content: center; align-items: center;
-                        text-align: center;
-                        margin-bottom: 10px;
-                    ">
+                    f"""<div style="border: 1px solid {row['Color_UI']}; border-radius: 8px; padding: 5px; background-color: {row['Color_UI']}20; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 10px;">
                         <p style="font-size: 1.5em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Arrow_UI']}</p>
                         <p style="font-size: 0.7em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Comparação'].split(' ')[0]}</p>
-                    </div>
-                    """,
+                    </div>""",
                     unsafe_allow_html=True
                 )
 
