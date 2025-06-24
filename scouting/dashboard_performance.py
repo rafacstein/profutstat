@@ -128,13 +128,9 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
-
-# --- Função de Pré-processamento para Médias Coletivas (EC São Bento - COLUNA CASA) ---
 @st.cache_data
 def preprocess_collective_data_for_averages(df_collective_raw):
     df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
-    
-    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
     collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
     collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
     
@@ -263,14 +259,13 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
             'Color_UI': display_color
         })
-    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora') existam
+    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
     df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
     
     # Adiciona colunas se estiverem faltando (pode ocorrer se comparison_list for vazia ou ter eventos faltando)
     required_cols = ['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação', 'Arrow_UI', 'Color_UI']
     for col in required_cols:
         if col not in df_result.columns:
-            # Para colunas numéricas, usa 0.0. Para strings, usa string vazia.
             if col in ['Atual', 'Média', 'Fora']:
                 df_result[col] = 0.0 
             else:
@@ -297,7 +292,7 @@ class PDF(FPDF):
         headers = df_to_print.columns.tolist()
         
         if 'Média' in headers and 'Atual' in headers and 'Fora' in headers: # Coletivo (Atual, Média, Fora, Status)
-            col_widths = [60, 30, 30, 30, 40] # Evento, Atual(Casa), Média(Casa), Fora(Visitante), Status
+            col_widths = [60, 30, 30, 30, 40] 
         elif 'Média' in headers and 'Atual' in headers: # Individual (Atual, Média, Mudança)
             col_widths = [80, 30, 30, 30] 
         else: # Fallback para caso não tenha Média (não deveria acontecer mais)
@@ -319,8 +314,8 @@ class PDF(FPDF):
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
                 elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
-                        # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
-                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
+                        # Para '% de Posse de bola' formatar como float com 2 casas
+                        if 'Event_Name' in row.index and row['Event_Name'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
                         elif header == 'Média':
                             item_str = f"{float(item):.2f}"
@@ -377,15 +372,12 @@ tab_individual, tab_coletiva = st.tabs(["Estatísticas Individuais", "Estatísti
 with tab_individual:
     st.header("Análise de Performance Individual")
 
-    # Carrega dados individuais (e faz o pré-processamento para médias corrigidas)
     df_individual_raw = load_individual_data(GITHUB_INDIVIDUAL_CSV_URL)
     df_grouped_per_event_per_game_individual, player_overall_averages_corrected = preprocess_individual_data_for_averages(df_individual_raw)
 
-    # Usamos os dados do preprocessamento para popular os selectboxes
     all_individual_games = sorted(df_grouped_per_event_per_game_individual['Jogo'].unique().tolist())
     all_players = sorted(df_grouped_per_event_per_game_individual['Player'].unique().tolist())
 
-    # Filtros individuais
     col_ind_game, col_ind_player = st.columns(2)
     with col_ind_game:
         selected_individual_game = st.selectbox('Jogo Atual (Individual):', all_individual_games)
