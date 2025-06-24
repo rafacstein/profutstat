@@ -74,13 +74,13 @@ EVENTO_NATUREZA_CONFIG_INDIVIDUAL = {
     'Duelo Aéreo Ganho': False, 'Defesa Goleiro': False, 'Passe Chave': False, 
 }
 
-EVENTO_NATUREZA_CONFIG_COLETIVA = {
-    'Posse de bola': False, 'Gols': False, 'Chutes no gol': False, 
-    'Chutes pra fora': True, 'Escanteios': False, 'Faltas': True, 
-    'Cartões amarelos': True, 'Cartões vermelhos': True, 'Impedimentos': True, 
-    'Desarmes': False, 'Interceptações': False, 'Passes Certos': False,    
-    'Passes Errados': True, '% de Posse de bola': False, 
-}
+# PARA COLETIVO: AGORA SEM IS_NEGATIVE POIS NÃO HÁ COMPARAÇÃO DE MÉDIA
+EVENTO_LISTA_COLETIVA = [
+    'Posse de bola', 'Gols', 'Chutes no gol', 'Chutes pra fora', 
+    'Escanteios', 'Faltas', 'Cartões amarelos', 'Cartões vermelhos', 
+    'Impedimentos', 'Desarmes', 'Interceptações', 'Passes Certos',    
+    'Passes Errados', '% de Posse de bola', 
+]
 
 # --- ORDEM DE EXIBIÇÃO PERSONALIZADA PARA ESTATÍSTICAS INDIVIDUAIS ---
 INDIVIDUAL_EVENT_DISPLAY_ORDER = [
@@ -128,17 +128,13 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
-
-# --- Função de Pré-processamento para Médias Coletivas (EC São Bento - COLUNA CASA) ---
-@st.cache_data
-def preprocess_collective_data_for_averages(df_collective_raw):
-    df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
-    
-    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
-    collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
-    collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
-    
-    return collective_overall_averages_corrected
+# REMOVIDO: Função de pré-processamento para média coletiva não é mais necessária
+# @st.cache_data
+# def preprocess_collective_data_for_averages(df_collective_raw):
+#     df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
+#     collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
+#     collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
+#     return collective_overall_averages_corrected
 
 
 # --- Funções de Cálculo de Performance ---
@@ -212,69 +208,33 @@ def get_display_event_name(original_event_name):
     return original_event_name
 
 
-# --- Nova Função de Cálculo de Performance Coletiva (Compara com a Média da Coluna Casa) ---
-def get_collective_performance_data(game_name, df_collective_raw_data, collective_overall_averages):
+# --- Nova Função de Cálculo de Performance Coletiva (APENAS VALORES CASA E FORA) ---
+# A média e indicadores complexos foram removidos.
+def get_collective_performance_data(game_name, df_collective_raw_data):
     game_data = df_collective_raw_data[df_collective_raw_data['Jogo'] == game_name]
     
     comparison_list = []
     
-    epsilon = 0.01
-
-    for event_name, is_negative_event in EVENTO_NATUREZA_CONFIG_COLETIVA.items():
-        current_val_casa_series = game_data[game_data['Evento'] == event_name]['Casa']
-        current_val_casa = current_val_casa_series.iloc[0] if not current_val_casa_series.empty else 0
-
-        avg_val_casa_series = collective_overall_averages[collective_overall_averages['Evento'] == event_name]['Média']
-        avg_val_casa = avg_val_casa_series.iloc[0] if not avg_val_casa_series.empty else 0
-
-        # Valor do time de Fora
-        fora_val_series = game_data[game_data['Evento'] == event_name]['Fora']
-        fora_val = fora_val_series.iloc[0] if not fora_val_series.empty else 0
-
-
-        indicator_text = "Mantém" 
-        display_color = "#6c757d" 
-        display_arrow = "" # Seta removida para análise coletiva
-
-        if abs(current_val_casa - avg_val_casa) < epsilon: 
-            indicator_text = "Mantém"
-            display_color = "#6c757d" 
-        elif is_negative_event: 
-            if current_val_casa < avg_val_casa:
-                indicator_text = "Melhor"
-                display_color = "#28a745" 
-            else: 
-                indicator_text = "Pior"
-                display_color = "#dc3545" 
-        else: 
-            if current_val_casa > avg_val_casa:
-                indicator_text = "Melhor"
-                display_color = "#28a745" 
-            elif current_val_casa < avg_val_casa:
-                indicator_text = "Pior"
-                display_color = "#dc3545" 
+    # NÃO HÁ EPSILON AQUI, POIS NÃO HÁ COMPARAÇÃO OU INDICADOR DE SETA
+    for event_name in EVENTO_LISTA_COLETIVA: # Itera pela nova lista de eventos coletivos
+        event_row = game_data[game_data['Evento'] == event_name]
         
+        # Obter valores de Casa e Fora, tratando NaN para int
+        casa_val = event_row['Casa'].iloc[0] if not event_row.empty and pd.notnull(event_row['Casa'].iloc[0]) else 0
+        fora_val = event_row['Fora'].iloc[0] if not event_row.empty and pd.notnull(event_row['Fora'].iloc[0]) else 0
+
         comparison_list.append({
             'Event_Name': event_name, 
-            'Atual': current_val_casa, # Valor da Casa
-            'Média': avg_val_casa, # Média da Casa
-            'Fora': fora_val, # Valor do time de Fora
-            'Comparação': indicator_text, # Status de comparação Casa vs Média
-            'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
-            'Color_UI': display_color
+            'Casa': casa_val, 
+            'Fora': fora_val, 
         })
-    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
-    df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
     
-    # Adiciona colunas se estiverem faltando (pode ocorrer se comparison_list for vazia ou ter eventos faltando)
-    required_cols = ['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação', 'Arrow_UI', 'Color_UI']
+    # Garante que as colunas essenciais existam
+    df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
+    required_cols = ['Event_Name', 'Casa', 'Fora']
     for col in required_cols:
         if col not in df_result.columns:
-            # Para colunas numéricas, usa 0.0. Para strings, usa string vazia.
-            if col in ['Atual', 'Média', 'Fora']:
-                df_result[col] = 0.0 
-            else:
-                df_result[col] = '' 
+            df_result[col] = 0.0 if col in ['Casa', 'Fora'] else ''
     
     return df_result
 
@@ -296,11 +256,12 @@ class PDF(FPDF):
     def add_table(self, df_to_print):
         headers = df_to_print.columns.tolist()
         
-        if 'Média' in headers and 'Atual' in headers and 'Fora' in headers: # Coletivo (Atual, Média, Fora, Status)
-            col_widths = [60, 30, 30, 30, 40] 
-        elif 'Média' in headers and 'Atual' in headers: # Individual (Atual, Média, Mudança)
-            col_widths = [80, 30, 30, 30] 
-        else: # Fallback para caso não tenha Média (não deveria acontecer mais)
+        # Ajusta larguras de coluna para o PDF
+        if 'Média' in headers and 'Atual' in headers: # Individual
+            col_widths = [80, 30, 30, 30] # Evento, Atual, Média, Mudança
+        elif 'Casa' in headers and 'Fora' in headers: # Coletivo (Evento, Casa, Fora)
+            col_widths = [80, 45, 45] # Ajustado para 3 colunas
+        else: # Fallback
             col_widths = [80] * len(headers) 
 
         self.set_font('Arial', 'B', 9)
@@ -313,21 +274,19 @@ class PDF(FPDF):
                 item = row[header] 
                 item_str = str(item)
 
-                if header == 'Comparação' or header == 'Status': # Coletivo (Status)
-                    item_str = str(item) 
-                elif header == 'Mudança': # Individual
+                if header == 'Mudança': # Individual
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
                 elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
-                        # Para '% de Posse de bola' formatar como float com 2 casas
-                        if 'Event_Name' in row.index and row['Event_Name'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
+                        # Verifica se a coluna 'Evento' (o nome original Event_Name) é '% de Posse de bola'
+                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média', 'Casa', 'Fora']: # Apply to Actual, Casa, Fora for %
                             item_str = f"{float(item):.2f}%" 
                         elif header == 'Média':
                             item_str = f"{float(item):.2f}"
-                        else: 
+                        else: # Outros numéricos inteiros
                             item_str = str(int(float(item))) 
                     except ValueError:
-                        item_str = str(item) 
+                        item_str = str(item) # Caso seja NaN ou outro não-numérico
                 else: 
                     item_str = str(item)
                 
@@ -344,8 +303,8 @@ def create_pdf_report_generic(entity_type, entity_name, game_name, performance_d
     pdf.ln(5)
 
     if is_collective:
-        df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação']].copy() # Colunas para coletivo
-        df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Atual': 'Atual (Casa)', 'Média': 'Média (Casa)', 'Fora': 'Fora (Visitante)', 'Comparação': 'Status'}, inplace=True)
+        df_for_pdf = performance_data[['Event_Name', 'Casa', 'Fora']].copy() # Apenas estas colunas para PDF coletivo
+        df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Casa': 'Casa', 'Fora': 'Fora'}, inplace=True)
     else: # Individual
         df_for_pdf = performance_data[['Event_Name', 'Atual', 'Média', 'Mudança_PDF']].copy()
         df_for_pdf.rename(columns={'Event_Name': 'Evento', 'Mudança_PDF': 'Mudança'}, inplace=True)
@@ -419,7 +378,7 @@ with tab_individual:
             with col_name:
                 st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
 
-            current_val = int(row['Atual'])
+            current_val = int(row['Atual']) if pd.notnull(row['Atual']) else 0
             avg_val = f"{row['Média']:.2f}"
             change_text_ui = row['Mudança_UI']
 
@@ -443,7 +402,7 @@ with tab_individual:
             with col_value_card:
                 st.markdown(
                     f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px;">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
                         <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {avg_val}</p>
                     </div>""",
                     unsafe_allow_html=True
@@ -507,7 +466,8 @@ with tab_coletiva:
 
 
         for index, row in performance_data_collective.iterrows():
-            col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
+            # Layout com 3 colunas para o coletivo: Nome do Evento | Valor Casa | Valor Fora
+            col_name, col_casa_val, col_fora_val = st.columns([0.33, 0.33, 0.34]) # Removida coluna de indicador
             
             with col_name:
                 st.markdown(f"<h5 style='color: #333; margin-top: 15px; margin-bottom: 0px; font-weight: 600;'>{get_display_event_name(row['Event_Name'])}</h5>", unsafe_allow_html=True)
@@ -515,8 +475,7 @@ with tab_coletiva:
             with col_casa_val:
                 st.markdown(
                     f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px;">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
-                        <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {row['Média']:.2f} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual']) if pd.notnull(row['Atual']) else 0} <small style="font-size: 0.4em; color: #777;">(Casa)</small></p>
                     </div>""",
                     unsafe_allow_html=True
                 )
@@ -524,20 +483,14 @@ with tab_coletiva:
             with col_fora_val: 
                 st.markdown(
                     f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 10px;">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Fora'])}</p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Fora']) if pd.notnull(row['Fora']) else 0}</p>
                         <p style="font-size: 0.7em; color: #777; margin-bottom: 0px; margin-top: 0;">(Fora)</p>
                     </div>""",
                     unsafe_allow_html=True
                 )
-
-            with col_indicator_collective:
-                st.markdown(
-                    f"""<div style="border: 1px solid {row['Color_UI']}; border-radius: 8px; padding: 5px; background-color: {row['Color_UI']}20; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; margin-bottom: 10px;">
-                        <p style="font-size: 1.5em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Arrow_UI']}</p>
-                        <p style="font-size: 0.7em; font-weight: bold; color: {row['Color_UI']}; margin-bottom: 0; margin-top: 0;">{row['Comparação'].split(' ')[0]}</p>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+            # A coluna do indicador coletivo foi REMOVIDA AQUI
+            # with col_indicator_collective: 
+            #    st.markdown(...)
 
         st.write('---') 
 
