@@ -128,9 +128,13 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
+
+# --- Função de Pré-processamento para Médias Coletivas (EC São Bento - COLUNA CASA) ---
 @st.cache_data
 def preprocess_collective_data_for_averages(df_collective_raw):
     df_collective_raw['Evento'] = df_collective_raw['Evento'].str.strip()
+    
+    # A média é calculada APENAS sobre a coluna 'Casa', assumindo que é sempre o EC São Bento.
     collective_overall_averages_corrected = df_collective_raw.groupby('Evento')['Casa'].mean(numeric_only=True).reset_index()
     collective_overall_averages_corrected.rename(columns={'Casa': 'Média'}, inplace=True)
     
@@ -259,13 +263,14 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
             'Color_UI': display_color
         })
-    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
+    # Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
     df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
     
     # Adiciona colunas se estiverem faltando (pode ocorrer se comparison_list for vazia ou ter eventos faltando)
     required_cols = ['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação', 'Arrow_UI', 'Color_UI']
     for col in required_cols:
         if col not in df_result.columns:
+            # Para colunas numéricas, usa 0.0. Para strings, usa string vazia.
             if col in ['Atual', 'Média', 'Fora']:
                 df_result[col] = 0.0 
             else:
@@ -315,7 +320,8 @@ class PDF(FPDF):
                 elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
                         # Para '% de Posse de bola' formatar como float com 2 casas
-                        if 'Event_Name' in row.index and row['Event_Name'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
+                        # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
+                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
                         elif header == 'Média':
                             item_str = f"{float(item):.2f}"
@@ -517,7 +523,7 @@ with tab_coletiva:
                     unsafe_allow_html=True
                 )
             
-            with col_fora_val: # Adicionado de volta o card do time de fora
+            with col_fora_val: 
                 st.markdown(
                     f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; align-items: center; margin-bottom: 10px;">
                         <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Fora'])}</p>
