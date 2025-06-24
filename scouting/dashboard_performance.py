@@ -263,7 +263,7 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
             'Arrow_UI': display_arrow, # Seta (agora sempre vazia para coletivo)
             'Color_UI': display_color
         })
-    # Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
+    # CORRIGIDO: Garante que as colunas essenciais ('Atual', 'Média', 'Fora', etc.) existam
     df_result = pd.DataFrame(comparison_list).sort_values(by='Event_Name').reset_index(drop=True)
     
     # Adiciona colunas se estiverem faltando (pode ocorrer se comparison_list for vazia ou ter eventos faltando)
@@ -320,8 +320,7 @@ class PDF(FPDF):
                 elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
                         # Para '% de Posse de bola' formatar como float com 2 casas
-                        # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
-                        if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
+                        if 'Event_Name' in row.index and row['Event_Name'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
                         elif header == 'Média':
                             item_str = f"{float(item):.2f}"
@@ -444,7 +443,7 @@ with tab_individual:
             with col_value_card:
                 st.markdown(
                     f"""<div style="border: 1px solid #e6e6e6; border-radius: 8px; padding: 8px; background-color: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.03); height: 75px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 10px;">
-                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{current_val} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
+                        <p style="font-size: 1.2em; font-weight: bold; color: #000; margin-bottom: 3px; margin-top: 0;">{int(row['Atual'])} <small style="font-size: 0.4em; color: #777;">(Atual)</small></p>
                         <p style="font-size: 0.7em; color: #555; margin-bottom: 0px; margin-top: 0;">Média: {avg_val}</p>
                     </div>""",
                     unsafe_allow_html=True
@@ -508,7 +507,6 @@ with tab_coletiva:
 
 
         for index, row in performance_data_collective.iterrows():
-            # Layout com 4 colunas para o coletivo: Nome do Evento | Valor Casa | Valor Fora | Indicador (da Casa vs Média)
             col_name, col_casa_val, col_fora_val, col_indicator_collective = st.columns([0.25, 0.25, 0.25, 0.25]) 
             
             with col_name:
