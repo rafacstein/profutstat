@@ -126,8 +126,6 @@ def preprocess_individual_data_for_averages(df_raw_individual):
     player_overall_averages_corrected = df_full_individual_counts.groupby(['Player', 'Evento descrição'])['Count'].mean().reset_index()
     player_overall_averages_corrected.rename(columns={'Count': 'Média'}, inplace=True)
     
-    # Retorna o df_grouped original e as médias corrigidas
-    df_grouped_per_event_per_game = df_raw_individual.groupby(['Jogo', 'Player', 'Evento descrição'])['Count'].sum().reset_index()
     return df_grouped_per_event_per_game, player_overall_averages_corrected
 
 
@@ -272,7 +270,11 @@ def get_collective_performance_data(game_name, df_collective_raw_data, collectiv
     required_cols = ['Event_Name', 'Atual', 'Média', 'Fora', 'Comparação', 'Arrow_UI', 'Color_UI']
     for col in required_cols:
         if col not in df_result.columns:
-            df_result[col] = 0 if col in ['Atual', 'Média', 'Fora'] else '' # Default numerical or string
+            # Para colunas numéricas, usa 0.0. Para strings, usa string vazia.
+            if col in ['Atual', 'Média', 'Fora']:
+                df_result[col] = 0.0 
+            else:
+                df_result[col] = '' 
     
     return df_result
 
@@ -317,7 +319,6 @@ class PDF(FPDF):
                     item_str = str(item).replace('↑', '(UP)').replace('↓', '(DOWN)').replace('—', '(-)')
                 elif header in ['Atual', 'Média', 'Casa', 'Fora']: # Numéricos
                     try:
-                        # Para '% de Posse de bola' formatar como float com 2 casas
                         # Verifica se a coluna 'Evento' (o nome original Event_Name) é ' % de Posse de bola'
                         if 'Evento' in row.index and row['Evento'] == '% de Posse de bola' and header in ['Atual', 'Média']: 
                             item_str = f"{float(item):.2f}%" 
@@ -363,7 +364,6 @@ col_logo1, col_title_main, col_logo2 = st.columns([0.15, 0.7, 0.15])
 with col_logo1:
     st.image(PROFUTSTAT_LOGO_URL, width=80) 
 with col_title_main:
-    # Título principal (h1 com estilo, sem st.title() duplicado)
     st.markdown("<h1 style='text-align: center; color: #333; font-size: 2em;'>📊 Dashboard de Análise de Performance</h1>", unsafe_allow_html=True)
 with col_logo2:
     st.image(SAO_BENTO_LOGO_URL, width=80) 
