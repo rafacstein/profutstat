@@ -18,7 +18,8 @@ initial_state = {
     'possession_team_active': None, # 'main_team' ou None (para bola fora/disputa)
     'possession_start_time': 0,
     'main_team_possession_seconds': 0.0,
-    'match_observations': [] # Para observações gerais
+    'match_observations': [], # Para observações gerais
+    'selected_player_for_actions': None # Novo estado para o jogador selecionado
 }
 
 for key, value in initial_state.items():
@@ -84,7 +85,7 @@ def record_event(event, player_number, event_type="", subtype="", observation=""
     st.session_state.match_data = pd.concat(
         [st.session_state.match_data, pd.DataFrame([new_event])], ignore_index=True
     )
-    st.rerun()
+    # st.rerun() # Removed rerun here to allow for multiple clicks without immediate reload
 
 def generate_excel_by_player():
     if st.session_state.match_data.empty:
@@ -105,6 +106,39 @@ def generate_excel_by_player():
         player_stats_pivot.to_excel(writer, index=False, sheet_name='Stats por Jogador')
     return output.getvalue()
 
+def select_player_for_actions(player_num):
+    st.session_state.selected_player_for_actions = player_num
+    st.rerun()
+
+def _get_player_buttons_per_row():
+    num_players = len(st.session_state.registered_players)
+    if num_players <= 5:
+        return 5 # Max 5 players per row for a good look
+    elif num_players <= 10:
+        return 6
+    else:
+        return 7 # For many players, make buttons smaller and more per row
+
+def _create_player_action_buttons():
+    players_sorted = st.session_state.registered_players.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce'))
+    
+    buttons_per_row = _get_player_buttons_per_row()
+    cols = st.columns(buttons_per_row)
+    
+    for i, row in players_sorted.iterrows():
+        player_num = row["Number"]
+        player_name = row["Name"]
+        display_name = f"#{player_num} {player_name}"
+        
+        button_clicked = cols[i % buttons_per_row].button(
+            display_name, 
+            key=f"select_player_btn_{player_num}", 
+            use_container_width=True,
+            type="primary" if st.session_state.selected_player_for_actions == player_num else "secondary",
+            on_click=select_player_for_actions,
+            args=(player_num,)
+        )
+
 # ========== BARRA LATERAL (SIDEBAR) ==========
 with st.sidebar:
     st.title("⚙️ Configuração")
@@ -123,6 +157,8 @@ with st.sidebar:
                     if player_num not in st.session_state.registered_players["Number"].values:
                         new_player = pd.DataFrame([{"Number": player_num, "Name": player_name}])
                         st.session_state.registered_players = pd.concat([st.session_state.registered_players, new_player], ignore_index=True)
+                        st.session_state.selected_player_for_actions = None # Clear selection on new player added
+                        st.rerun() # Rerun to update player buttons
                     else: st.warning(f"Nº {player_num} já existe.")
         st.dataframe(st.session_state.registered_players.sort_values(by="Number", key=lambda x: pd.to_numeric(x, errors='coerce')), use_container_width=True, hide_index=True)
 
@@ -164,14 +200,16 @@ st.header(f"⚡ Ações: {st.session_state.main_team_name}")
 if st.session_state.registered_players.empty:
     st.warning(f"⬅️ Cadastre jogadores para o '{st.session_state.main_team_name}' na barra lateral para começar a registrar eventos.")
 else:
-    def format_func_player(player_num):
-        player_info = st.session_state.registered_players[st.session_state.registered_players['Number'] == player_num]
-        return f"#{player_num} - {player_info['Name'].iloc[0]}" if not player_info.empty else f"#{player_num}"
+    # Player selection buttons
+    st.markdown("##### Selecione o Jogador para Registrar Ações:")
+    _create_player_action_buttons()
 
-    selected_player_num = st.selectbox("Selecione o Jogador:", options=st.session_state.registered_players["Number"].tolist(), format_func=format_func_player, key=f"player_selector_main")
-    
+    selected_player_num = st.session_state.selected_player_for_actions
+
     if selected_player_num:
-        st.info(f"**Registrando para: {format_func_player(selected_player_num)}**")
+        player_info = st.session_state.registered_players[st.session_state.registered_players['Number'] == selected_player_num]
+        player_name_display = player_info['Name'].iloc[0] if not player_info.empty else "N/A"
+        st.info(f"**Registrando para: #{selected_player_num} - {player_name_display}**")
         p = selected_player_num
         
         st.markdown("##### Finalização e Criação")
@@ -217,6 +255,8 @@ else:
         c2.button("Perda de Posse", key=f"poss_lost_{p}", on_click=record_event, args=("Perda de Posse", p), use_container_width=True)
         c3.button("Falta Cometida", key=f"foul_c_{p}", on_click=record_event, args=("Falta", p, "Cometida"), use_container_width=True)
         c4.button("Falta Sofrida", key=f"foul_s_{p}", on_click=record_event, args=("Falta", p, "Sofrida"), use_container_width=True)
+    else:
+        st.info("Selecione um jogador acima para registrar ações.")
 
 # --- Caixa de Eventos para Observações ---
 st.markdown("---")
@@ -230,6 +270,7 @@ with st.form("observation_form", clear_on_submit=True):
             second_obs = int(current_time_obs % 60)
             record_event("Observação", player_number="N/A", observation=f"[{minute_obs}:{second_obs:02d}] {observation_text}")
             st.success("Observação registrada!")
+        st.rerun() # Rerun after submitting an observation
 
 # --- Seção de Relatórios e Log ---
 st.markdown("---")
